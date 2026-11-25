@@ -1,59 +1,99 @@
-# Gogo
+# Go!Go!
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.27.
+Go!Go! là web app dùng cho từng chuyến đi: chuẩn bị quán theo cụm trước chuyến, trong chuyến lướt thẻ quán để chọn, chụp ảnh để check-in, ghi chi tiêu và xem recap sau chuyến. Giao diện ưu tiên điện thoại.
 
-## Development server
+## Công nghệ
 
-To start a local development server, run:
+| Phần | Công nghệ |
+| --- | --- |
+| Frontend | Angular 19, Tailwind CSS 3.4, Leaflet (bản đồ), IndexedDB (`idb`) |
+| Backend | Node.js, Express 5, Mongoose (MongoDB), Zod, JWT, Pino |
+| Lưu ảnh | Supabase Storage (bucket private) |
+| Gợi ý quán | Google Places API (New) |
+| Kiểm thử | Karma + Jasmine (web), Vitest + Supertest + mongodb-memory-server (server) |
 
-```bash
-ng serve
+## Cấu trúc thư mục
+
+```
+.
+├── projects/
+│   ├── web/        # Ứng dụng Angular
+│   └── shared/     # Mã dùng chung
+├── server/
+│   ├── src/        # API Express (config, lib, middlewares, modules)
+│   ├── seed/       # Script nạp dữ liệu mẫu
+│   └── test/       # Test của server
+├── docs/           # Tài liệu: yêu cầu, API, thiết kế database, quy tắc Angular
+├── proxy.conf.json # Proxy /api sang server khi chạy dev
+└── .env.example    # Mẫu biến môi trường
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Yêu cầu
 
-## Code scaffolding
+- Node.js (đã chạy được với Node 26) và npm
+- MongoDB: Atlas M0 hoặc cài local
+- Tài khoản Supabase (lưu ảnh) và khoá Google Places API (gợi ý quán)
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Cài đặt
 
 ```bash
-ng generate --help
+npm install
+cp .env.example .env
 ```
 
-## Building
+Mở `.env` và điền giá trị thật. **Không commit file `.env`.**
 
-To build the project run:
+| Biến | Ý nghĩa |
+| --- | --- |
+| `NODE_ENV`, `PORT` | Môi trường và cổng API (mặc định 3001) |
+| `FRONTEND_ORIGIN` | Origin của frontend để cấu hình CORS (mặc định `http://localhost:4200`) |
+| `MONGODB_URI` | Chuỗi kết nối MongoDB |
+| `JWT_ACCESS_SECRET` | Khoá ký access token |
+| `ACCESS_TOKEN_TTL_SECONDS` | Thời hạn access token (mặc định 15 phút). Refresh token được băm và lưu trong collection `refreshTokens` |
+| `REFRESH_TOKEN_TTL_DAYS` | Thời hạn refresh token |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET` | Cấu hình Supabase Storage |
+| `GOOGLE_PLACES_API_KEY` | Khoá Google Places API |
+| `PLACES_DAILY_CAP` | Giới hạn số lượt gọi Places mỗi ngày ở phía app. Nên đặt thêm quota trên Google Cloud |
+
+## Chạy khi phát triển
+
+Cần chạy cả database, API và frontend, mỗi cái một terminal:
 
 ```bash
-ng build
+# 1. MongoDB local (bỏ qua nếu dùng Atlas)
+npm run db:start
+
+# 2. API tại http://localhost:3001
+npm run dev:server
+
+# 3. Frontend tại http://localhost:4200 (tự proxy /api sang API)
+npm start
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+Nạp dữ liệu mẫu:
 
 ```bash
-ng test
+npm run seed
 ```
 
-## Running end-to-end tests
+## Các lệnh thường dùng
 
-For end-to-end (e2e) testing, run:
+| Lệnh | Tác dụng |
+| --- | --- |
+| `npm start` | Chạy frontend ở chế độ dev, kèm proxy |
+| `npm run build` | Build frontend vào `dist/` |
+| `npm run watch` | Build frontend liên tục ở chế độ development |
+| `npm run dev:server` | Chạy API, tự khởi động lại khi sửa code |
+| `npm run build:server` | Biên dịch server |
+| `npm run start:api` | Chạy server đã build |
+| `npm run typecheck:server` | Kiểm tra kiểu cho server |
+| `npm run test:web` | Chạy test frontend một lần |
+| `npm run test:server` | Chạy test server |
+| `npm run seed` | Nạp dữ liệu mẫu |
 
-```bash
-ng e2e
-```
+## Tài liệu
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- [Yêu cầu sản phẩm](docs/requirement.md)
+- [API Contract](docs/API%20Contract.md)
+- [Thiết kế database](docs/Database%20Design.md)
+- [Quy tắc Angular](docs/QUY_TAC_ANGULAR.md)
