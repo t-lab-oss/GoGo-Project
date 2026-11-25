@@ -1,0 +1,55 @@
+<main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-6 pt-5">
+  <header class="flex items-center justify-between">
+    <app-back-link [link]="['/trips', tripId, 'expenses']" />
+    <h1 class="m-0 flex-1 text-center text-[19px] font-bold tracking-[-0.3px]">Chi tiêu</h1>
+    <span class="w-11"></span>
+  </header>
+
+  @if (checkin(); as c) {
+    <p class="m-0 -mt-1 text-center font-semibold">{{ c.placeLabel }}</p>
+
+    <div class="px-0 pb-2.5 pt-6 text-center" aria-live="polite">
+      <span class="text-[52px] font-extrabold tracking-[-2px]">{{ amountText() }}</span><span
+        class="text-2xl text-muted"
+      >
+        đ</span
+      >
+    </div>
+
+    <label class="sr-only" for="note">Ghi chú</label>
+    <input
+      id="note"
+      name="note"
+      class="field-input"
+      type="text"
+      maxlength="200"
+      placeholder="Ghi chú (nếu cần)"
+      [(ngModel)]="note"
+    />
+
+    <div class="grid grid-cols-3 gap-2" role="group" aria-label="Bàn phím số">
+      @for (key of keys; track key) {
+        <button
+          type="button"
+          class="h-[58px] cursor-pointer rounded-2xl border-0 bg-white text-[22px] font-semibold text-ink"
+          [attr.aria-label]="key === '⌫' ? 'Xoá số cuối' : key"
+          (click)="press(key)"
+        >
+          {{ key }}
+        </button>
+      }
+    </div>
+
+    @if (error()) {
+      <p class="m-0 text-sm text-danger" role="alert">{{ error() }}</p>
+    }
+    <div class="flex-1"></div>
+    <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
+      {{ saving() ? 'Đang lưu…' : 'Lưu' }}
+    </button>
+  } @else if (loading()) {
+    <p class="m-0 text-sm text-muted">Đang tải…</p>
+  } @else {
+    <p class="m-0 text-sm text-danger" role="alert">{{ error() }}</p>
+  }
+</main>

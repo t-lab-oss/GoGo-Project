@@ -1,0 +1,54 @@
+<main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-6 pt-5">
+  <header class="flex items-center justify-between">
+    <app-back-link [link]="['/trips', tripId, 'recap']" />
+    <h1 class="m-0 flex-1 text-center text-[19px] font-bold tracking-[-0.3px]">
+      @if (recap(); as r) {
+        Ngày {{ r.index }} · {{ formatDM(r.date) }}
+      } @else {
+        Recap ngày
+      }
+    </h1>
+    <span class="w-11"></span>
+  </header>
+
+  @if (recap(); as r) {
+    @for (v of r.visits; track v.checkinId) {
+      <div class="flex items-start gap-3.5">
+        <div class="w-11 flex-none pt-1 text-right text-[13px] font-semibold">{{ v.time }}</div>
+        <div class="flex-1 border-l-2 border-line pb-1 pl-3.5">
+          <div class="font-semibold">{{ v.label }}</div>
+          <div class="text-[13px] text-muted">
+            {{ v.clusterName }}
+            @if (v.amount !== null) {
+              · {{ formatVnd(v.amount) }}
+            } @else {
+              · chưa nhập chi tiêu
+            }
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="card p-5 text-center">
+        <p class="m-0 font-semibold">Ngày này chưa có nơi nào được ghé</p>
+        <p class="m-0 mt-1 text-[13px] text-muted">
+          Đánh dấu “Đã ghé” trong cụm để ngày này có recap.
+        </p>
+      </div>
+    }
+
+    <div class="flex-1"></div>
+    <div class="card flex items-center justify-between p-4">
+      <span class="text-sm text-muted">Tổng chi trong ngày</span>
+      <b class="text-xl">{{ formatVnd(r.totalSpent) }}</b>
+    </div>
+  } @else if (error()) {
+    <div class="card flex flex-col gap-3 p-4" role="alert">
+      <p class="m-0 text-sm text-danger">{{ error() }}</p>
+      <button type="button" class="btn btn-outline btn-sm self-start" (click)="load()">
+        Thử lại
+      </button>
+    </div>
+  } @else {
+    <p class="m-0 text-sm text-muted">Đang tải…</p>
+  }
+</main>

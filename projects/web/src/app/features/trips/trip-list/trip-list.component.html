@@ -1,4 +1,4 @@
-<main class="flex min-h-dvh flex-col gap-4 px-5 pb-6 pt-5">
+<main class="relative flex min-h-dvh flex-col gap-3.5 px-5 pb-28 pt-5">
   <header class="flex items-center justify-between">
     <span class="text-[26px] font-extrabold tracking-[-0.5px] text-brand">
       Go!<span class="text-accent">Go!</span>
@@ -12,8 +12,80 @@
     </a>
   </header>
 
-  <h1 class="m-0 text-[30px] font-extrabold leading-[1.1] tracking-[-1px]">Chuyến đi của bạn</h1>
-  <p class="card m-0 p-4 text-sm text-muted">
-    Chào {{ username() }}. Danh sách chuyến đi sẽ có ở bước tiếp theo.
-  </p>
+  <h1 class="m-0 text-[30px] font-extrabold leading-[1.1] tracking-[-1px]">Chuyến đi</h1>
+
+  @if (error()) {
+    <div class="card flex flex-col gap-3 p-4" role="alert">
+      <p class="m-0 text-sm text-danger">{{ error() }}</p>
+      <button type="button" class="btn btn-outline btn-sm self-start" (click)="load()">
+        Thử lại
+      </button>
+    </div>
+  } @else if (trips() === null) {
+    <p class="m-0 text-sm text-muted">Đang tải chuyến đi…</p>
+  } @else if (groups().length === 0) {
+    <div class="flex flex-1 flex-col items-center justify-center gap-3 pb-16 text-center">
+      <div
+        aria-hidden="true"
+        class="h-[140px] w-[200px] rounded-[28px]"
+        style="background: linear-gradient(160deg, #ffb3cf, #17709f)"
+      ></div>
+      <h2 class="m-0 mt-2 text-[19px] font-bold tracking-[-0.3px]">Chưa có chuyến nào</h2>
+      <p class="m-0 px-5 text-sm text-muted">
+        Tạo chuyến đầu tiên, hoặc nhờ bạn bè mời bằng tên đăng nhập hay ID.
+      </p>
+      <a routerLink="/trips/new" class="btn btn-primary mt-1.5">Tạo chuyến đi</a>
+    </div>
+  } @else {
+    @for (group of groups(); track group.status) {
+      <h2 class="m-0 text-[13px] font-semibold text-muted">{{ group.title }}</h2>
+      @for (trip of group.trips; track trip.id) {
+        <a [routerLink]="linkFor(trip)" class="card block overflow-hidden no-underline">
+          <div
+            aria-hidden="true"
+            [style.background]="gradientFor(trip.id)"
+            [class]="group.status === 'ongoing' ? 'h-[150px]' : 'h-24'"
+          ></div>
+          <div class="flex items-center gap-2.5 px-3.5 py-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="truncate text-[19px] font-bold tracking-[-0.3px]">{{
+                  trip.name
+                }}</span>
+                <span
+                  class="inline-flex flex-none items-center rounded-full px-[11px] py-[5px] text-xs font-semibold"
+                  [class]="pillClass(trip.status)"
+                  >{{ statusLabel[trip.status] }}</span
+                >
+              </div>
+              <div class="text-[13px] text-muted">
+                {{ formatDM(trip.startDate) }} – {{ formatDM(trip.endDate) }} ·
+                {{ trip.dayCount }} ngày · {{ trip.memberCount }} người
+              </div>
+            </div>
+          </div>
+        </a>
+      }
+    }
+  }
+
+  <a
+    routerLink="/trips/new"
+    aria-label="Tạo chuyến đi"
+    class="fixed bottom-6 right-[max(20px,calc(50vw-195px))] flex h-[60px] w-[60px] items-center justify-center rounded-[20px] bg-brand text-white shadow-[0_10px_24px_rgba(23,112,159,0.35)]"
+  >
+    <svg
+      width="26"
+      height="26"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  </a>
 </main>

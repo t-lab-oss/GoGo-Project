@@ -1,0 +1,157 @@
+<main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-8 pt-5">
+  <header class="flex items-center justify-between">
+    <app-back-link link="/trips" />
+    @if (trip()) {
+      <a [routerLink]="['/trips', tripId, 'edit']" class="btn btn-outline btn-sm no-underline"
+        >Sửa</a
+      >
+    }
+  </header>
+
+  @if (error()) {
+    <div class="card flex flex-col gap-3 p-4" role="alert">
+      <p class="m-0 text-sm text-danger">{{ error() }}</p>
+      <button type="button" class="btn btn-outline btn-sm self-start" (click)="load()">
+        Thử lại
+      </button>
+    </div>
+  } @else if (loading()) {
+    <p class="m-0 text-sm text-muted">Đang tải…</p>
+  } @else {
+    @if (trip(); as t) {
+      <section>
+        <h1 class="m-0 text-[30px] font-extrabold leading-[1.1] tracking-[-1px]">{{ t.name }}</h1>
+        <div class="mt-1.5 flex flex-wrap items-center gap-2">
+          <span
+            class="inline-flex items-center rounded-full px-[11px] py-[5px] text-xs font-semibold"
+            [class]="
+              t.status === 'ongoing'
+                ? 'bg-brand-soft text-brand'
+                : t.status === 'upcoming'
+                  ? 'bg-accent-soft text-danger'
+                  : 'bg-[#EEF1F4] text-muted'
+            "
+            >{{ statusLabel[t.status] }}</span
+          >
+          <span class="text-[13px] text-muted"
+            >{{ formatDM(t.startDate) }} – {{ formatDM(t.endDate) }} · {{ t.destination }}</span
+          >
+        </div>
+      </section>
+
+      <a
+        [routerLink]="['/trips', tripId, 'members']"
+        class="flex items-center gap-2.5 no-underline"
+      >
+        <span class="flex pl-2">
+          @for (letter of initials(); track $index) {
+            <span
+              class="-ml-2 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-surface bg-brand-soft text-xs font-bold text-brand"
+              >{{ letter }}</span
+            >
+          }
+        </span>
+        <span class="flex-1 text-sm font-semibold">{{ t.memberCount }} thành viên</span>
+        <span
+          class="inline-flex rounded-full bg-brand-soft px-[11px] py-[5px] text-xs font-semibold text-brand"
+          >+ Mời</span
+        >
+      </a>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <a [routerLink]="['/trips', tripId, 'expenses']" class="card p-3 no-underline">
+          <div class="text-xs text-muted">Chi tiêu</div>
+          <div class="text-lg font-extrabold">{{ formatVnd(t.totalSpent ?? 0) }}</div>
+        </a>
+        <a [routerLink]="['/trips', tripId, 'recap']" class="card p-3 no-underline">
+          <div class="text-xs text-muted">Recap</div>
+          <div class="text-lg font-extrabold">Xem lại</div>
+        </a>
+      </div>
+
+      <h2 class="m-0 mt-1 text-[19px] font-bold tracking-[-0.3px]">Chuẩn bị theo cụm</h2>
+      @for (c of clusters(); track c.id) {
+        <a
+          [routerLink]="['/trips', tripId, 'clusters', c.id]"
+          class="card flex items-center px-4 py-3.5 no-underline"
+        >
+          <div class="flex-1">
+            <div class="text-[19px] font-bold tracking-[-0.3px]">{{ c.name }}</div>
+            <div class="text-[13px] text-muted">{{ placeSummary(c) }}</div>
+          </div>
+          <svg
+            class="text-muted"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </a>
+      }
+      <button type="button" class="btn btn-outline btn-sm self-start" (click)="openAdd()">
+        + Thêm cụm
+      </button>
+    }
+  }
+
+  @if (showAdd()) {
+    <app-bottom-sheet (closed)="showAdd.set(false)">
+      <h2 class="m-0 text-[22px] font-bold tracking-[-0.3px]">Thêm cụm</h2>
+      <div>
+        <label class="field-label" for="cluster-name">Tên cụm</label>
+        <input
+          id="cluster-name"
+          name="cluster-name"
+          class="field-input"
+          type="text"
+          maxlength="40"
+          placeholder="Vd: Cà phê chiều"
+          [(ngModel)]="newCluster.name"
+        />
+      </div>
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label class="field-label" for="cluster-from">Từ</label>
+          <input
+            id="cluster-from"
+            name="cluster-from"
+            class="field-input"
+            type="time"
+            [(ngModel)]="newCluster.startTime"
+          />
+        </div>
+        <div class="flex-1">
+          <label class="field-label" for="cluster-to">Đến</label>
+          <input
+            id="cluster-to"
+            name="cluster-to"
+            class="field-input"
+            type="time"
+            [(ngModel)]="newCluster.endTime"
+          />
+        </div>
+      </div>
+      @if (addError()) {
+        <p class="m-0 text-sm text-danger" role="alert">{{ addError() }}</p>
+      }
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="adding() || !newCluster.name.trim()"
+        (click)="addCluster()"
+      >
+        {{ adding() ? 'Đang lưu…' : 'Thêm cụm' }}
+      </button>
+      <button type="button" class="btn h-11 bg-transparent text-muted" (click)="showAdd.set(false)">
+        Huỷ
+      </button>
+    </app-bottom-sheet>
+  }
+</main>
