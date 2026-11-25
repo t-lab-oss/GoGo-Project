@@ -1,0 +1,42 @@
+<main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-6 pt-5">
+  <header class="flex items-center justify-between">
+    <a routerLink="/trips" class="icon-btn" aria-label="Quay lại">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1 class="m-0 flex-1 text-center text-[19px] font-bold tracking-[-0.3px]">Tài khoản</h1>
+    <span class="w-11"></span>
+  </header>
+
+  <section class="mt-2.5 text-center">
+    <div class="mx-auto flex h-[84px] w-[84px] items-center justify-center rounded-full bg-brand-soft text-[32px] font-bold text-brand">
+      {{ initial() }}
+    </div>
+    <p class="mb-0 mt-3 text-[22px] font-bold tracking-[-0.3px]">{{ user()?.username }}</p>
+    <p class="m-0 text-[13px] text-muted">Tên đăng nhập</p>
+  </section>
+
+  <section class="card flex items-center gap-2.5 p-4">
+    <div class="flex-1">
+      <p class="m-0 text-[13px] text-muted">ID người dùng</p>
+      <p class="m-0 text-[22px] font-extrabold">{{ user()?.publicId }}</p>
+    </div>
+    <button type="button" class="btn btn-outline btn-sm" (click)="copyId()">
+      {{ copied() ? 'Đã sao chép' : 'Sao chép' }}
+    </button>
+  </section>
+  @if (copyFailed()) {
+    <p class="m-0 text-[13px] text-danger" role="alert">
+      Chưa sao chép được, hãy chọn ID rồi sao chép thủ công.
+    </p>
+  }
+  <p class="m-0 text-[13px] text-muted">
+    Người khác dùng ID hoặc tên đăng nhập này để mời bạn vào chuyến.
+  </p>
+
+  <div class="flex-1"></div>
+  <button type="button" class="btn btn-outline text-danger" [disabled]="loggingOut()" (click)="logout()">
+    {{ loggingOut() ? 'Đang đăng xuất…' : 'Đăng xuất' }}
+  </button>
+</main>
