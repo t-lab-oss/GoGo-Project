@@ -1,0 +1,75 @@
+<main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-6 pt-5">
+  <header class="flex items-center justify-between">
+    <app-back-link [link]="['/trips', tripId]" />
+    <h1 class="m-0 flex-1 text-center text-[19px] font-bold tracking-[-0.3px]">Thành viên</h1>
+    <span class="w-11"></span>
+  </header>
+  <p class="m-0 -mt-1.5 text-center text-[13px] text-muted">Ai trong chuyến cũng xem và sửa được</p>
+
+  @if (error()) {
+    <p class="m-0 text-sm text-danger" role="alert">{{ error() }}</p>
+  }
+
+  @if (trip(); as t) {
+    <ul class="card m-0 list-none px-3.5 py-1.5">
+      @for (m of t.members; track m.id) {
+        <li class="flex items-center gap-2.5 border-b border-line py-2.5 last:border-b-0">
+          <span
+            class="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-brand-soft text-[15px] font-bold text-brand"
+            >{{ m.username.charAt(0).toUpperCase() }}</span
+          >
+          <div class="min-w-0 flex-1">
+            <div class="truncate font-semibold">{{ m.username }}</div>
+            <div class="text-[13px] text-muted">{{ m.publicId }}</div>
+          </div>
+          @if (isMe(m.id)) {
+            <span
+              class="inline-flex rounded-full bg-[#EEF1F4] px-[11px] py-[5px] text-xs font-semibold text-muted"
+              >Bạn</span
+            >
+          } @else if (isOwner()) {
+            <button
+              type="button"
+              class="btn btn-outline btn-sm text-danger"
+              [attr.aria-label]="'Xoá ' + m.username + ' khỏi chuyến'"
+              (click)="remove(m.id)"
+            >
+              Xoá
+            </button>
+          }
+        </li>
+      }
+    </ul>
+
+    <h2 class="m-0 mt-1.5 text-[19px] font-bold tracking-[-0.3px]">Mời thêm người</h2>
+    <form class="flex flex-col gap-2" (ngSubmit)="invite()">
+      <label class="field-label m-0" for="identifier">Tên đăng nhập hoặc ID</label>
+      <div class="flex gap-2">
+        <input
+          id="identifier"
+          name="identifier"
+          class="field-input flex-1"
+          type="text"
+          placeholder="vd: anh_khoa hoặc GG-7K3F9Q"
+          autocomplete="off"
+          [(ngModel)]="identifier"
+        />
+        <button
+          type="submit"
+          class="btn btn-primary w-auto px-5"
+          [disabled]="inviting() || !identifier.trim()"
+        >
+          Thêm
+        </button>
+      </div>
+      @if (inviteError()) {
+        <p class="m-0 text-sm text-danger" role="alert">{{ inviteError() }}</p>
+      }
+      @if (justAdded()) {
+        <p class="m-0 text-sm text-brand" role="status">Đã thêm {{ justAdded() }} vào chuyến.</p>
+      }
+    </form>
+  } @else if (!error()) {
+    <p class="m-0 text-sm text-muted">Đang tải…</p>
+  }
+</main>

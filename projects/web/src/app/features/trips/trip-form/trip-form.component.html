@@ -1,0 +1,162 @@
+<main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-6 pt-5">
+  <header class="flex items-center justify-between">
+    <app-back-link [link]="backLink()" [query]="tripId ? {} : { list: 1 }" />
+    <h1 class="m-0 flex-1 text-center text-[19px] font-bold tracking-[-0.3px]">
+      {{ isEdit ? 'Sửa chuyến đi' : 'Chuyến đi mới' }}
+    </h1>
+    <span class="w-11"></span>
+  </header>
+
+  @if (loading()) {
+    <p class="m-0 text-sm text-muted">Đang tải…</p>
+  } @else {
+    <form class="flex flex-1 flex-col gap-3.5" (ngSubmit)="save()" #f="ngForm">
+      <div>
+        <label class="field-label" for="name">Tên chuyến đi</label>
+        <input
+          id="name"
+          name="name"
+          class="field-input"
+          [class.invalid]="fieldErrors()['name']"
+          type="text"
+          maxlength="80"
+          required
+          [(ngModel)]="form.name"
+        />
+        @if (fieldErrors()['name']) {
+          <p class="m-0 mt-1 text-[13px] text-danger">{{ fieldErrors()['name'] }}</p>
+        }
+      </div>
+      <div>
+        <label class="field-label" for="destination">Điểm đến</label>
+        <input
+          id="destination"
+          name="destination"
+          class="field-input"
+          [class.invalid]="fieldErrors()['destination']"
+          type="text"
+          maxlength="80"
+          required
+          [(ngModel)]="form.destination"
+        />
+        @if (fieldErrors()['destination']) {
+          <p class="m-0 mt-1 text-[13px] text-danger">{{ fieldErrors()['destination'] }}</p>
+        }
+      </div>
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label class="field-label" for="startDate">Ngày đi</label>
+          <input
+            id="startDate"
+            name="startDate"
+            class="field-input"
+            type="date"
+            required
+            [(ngModel)]="form.startDate"
+          />
+        </div>
+        <div class="flex-1">
+          <label class="field-label" for="endDate">Ngày về</label>
+          <input
+            id="endDate"
+            name="endDate"
+            class="field-input"
+            [class.invalid]="fieldErrors()['endDate']"
+            type="date"
+            required
+            [min]="form.startDate"
+            [(ngModel)]="form.endDate"
+          />
+        </div>
+      </div>
+      @if (fieldErrors()['endDate']) {
+        <p class="m-0 -mt-2 text-[13px] text-danger">{{ fieldErrors()['endDate'] }}</p>
+      }
+
+      @if (previewDays().length > 0) {
+        <section class="card p-3.5" aria-label="Các ngày của chuyến">
+          <div class="text-sm font-semibold">
+            {{ isEdit ? 'Các ngày của chuyến' : 'Tự tạo ' + previewDays().length + ' ngày' }}
+          </div>
+          <div class="mt-2.5 flex flex-wrap gap-1.5">
+            @for (day of previewDays(); track day.label) {
+              <span
+                class="inline-flex rounded-full bg-brand-soft px-[11px] py-[5px] text-xs font-semibold text-brand"
+                >{{ day.label }}</span
+              >
+            }
+          </div>
+          <p class="m-0 mt-2.5 text-[13px] text-muted">
+            Trạng thái tự đổi: Sắp đi → Đang đi → Đã xong.
+          </p>
+        </section>
+      }
+
+      @if (shrink(); as warn) {
+        <section class="card border-[1.5px] border-danger p-3.5" role="alert">
+          <p class="m-0 text-sm font-semibold">Bỏ ngày này sẽ ẩn dữ liệu đã có</p>
+          <p class="m-0 mt-1 text-[13px] text-muted">
+            {{ warn.removedDays.length }} ngày bị bỏ đang có {{ warn.counts.checkins }} check-in và
+            {{ warn.counts.expenses }} khoản chi. Dữ liệu không bị xoá, sẽ hiện lại nếu bạn nới ngày
+            ra.
+          </p>
+          <button
+            type="button"
+            class="btn btn-primary mt-3"
+            [disabled]="saving()"
+            (click)="save(true)"
+          >
+            Vẫn lưu và ẩn các ngày này
+          </button>
+        </section>
+      }
+
+      @if (error() && !shrink()) {
+        <p class="m-0 text-sm text-danger" role="alert">{{ error() }}</p>
+      }
+
+      <div class="flex-1"></div>
+      <button type="submit" class="btn btn-primary" [disabled]="saving() || f.invalid">
+        {{ saving() ? 'Đang lưu…' : isEdit ? 'Lưu thay đổi' : 'Tạo chuyến đi' }}
+      </button>
+      @if (isEdit) {
+        <button type="button" class="btn h-11 bg-transparent text-danger" (click)="openDelete()">
+          Xoá chuyến đi
+        </button>
+      }
+    </form>
+  }
+
+  @if (showDelete()) {
+    <app-bottom-sheet (closed)="showDelete.set(false)">
+      <h2 class="m-0 text-[22px] font-bold tracking-[-0.3px]">Xoá “{{ savedName() }}”?</h2>
+      <p class="m-0 text-sm text-muted">
+        Mất toàn bộ quán, check-in và chi tiêu của chuyến này với mọi thành viên. Không khôi phục
+        được.
+      </p>
+      <div>
+        <label class="field-label" for="confirm">Gõ tên chuyến đi để xác nhận</label>
+        <input
+          id="confirm"
+          name="confirm"
+          class="field-input"
+          type="text"
+          [placeholder]="savedName()"
+          [(ngModel)]="confirmName"
+        />
+      </div>
+      @if (error()) {
+        <p class="m-0 text-sm text-danger" role="alert">{{ error() }}</p>
+      }
+      <button
+        type="button"
+        class="btn bg-danger text-white"
+        [disabled]="!canDelete() || deleting()"
+        (click)="remove()"
+      >
+        {{ deleting() ? 'Đang xoá…' : 'Xoá chuyến đi' }}
+      </button>
+      <button type="button" class="btn btn-outline" (click)="showDelete.set(false)">Giữ lại</button>
+    </app-bottom-sheet>
+  }
+</main>

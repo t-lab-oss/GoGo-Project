@@ -21,5 +21,5 @@ const expenseSchema = new Schema(
 
 expenseSchema.index({ tripId: 1, dayDate: 1 });
 
-export type ExpenseDoc = InferSchemaType<typeof expenseSchema> & { _id: Types.ObjectId };
+export type ExpenseDoc = InferSchemaType<typeof expenseSchema> & { _id: Types.ObjectId; updatedAt: Date };
 export const ExpenseModel = model('Expense', expenseSchema, 'expenses');

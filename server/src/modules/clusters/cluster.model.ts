@@ -22,3 +22,11 @@ clusterSchema.index({ tripId: 1, order: 1 });
 
 export type ClusterDoc = InferSchemaType<typeof clusterSchema> & { _id: Types.ObjectId };
 export const ClusterModel = model('Cluster', clusterSchema, 'clusters');
+
+/** 4 cụm mặc định khi tạo chuyến (Database Design mục 3.4). */
+export const DEFAULT_CLUSTERS = [
+  { name: 'Ăn sáng', type: 'breakfast', startTime: '06:00', endTime: '09:00' },
+  { name: 'Ăn trưa', type: 'lunch', startTime: '11:00', endTime: '14:00' },
+  { name: 'Ăn tối', type: 'dinner', startTime: '17:00', endTime: '21:00' },
+  { name: 'Đi chơi', type: 'activity', startTime: '09:00', endTime: '17:00' },
+] as const;

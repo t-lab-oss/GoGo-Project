@@ -8,6 +8,15 @@
   }
 }
 
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer components {
   .btn {
     @apply flex h-[52px] w-full cursor-pointer items-center justify-center rounded-2xl border-0 px-[18px] text-[15px] font-semibold transition-opacity;
