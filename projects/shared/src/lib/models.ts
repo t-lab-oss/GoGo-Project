@@ -105,6 +105,12 @@ export interface Checkin {
   lat: number | null;
   lng: number | null;
   momentId: string | null;
+  /** 0,5 đến 5 sao (bước nửa sao), null nếu không chấm. */
+  rating: number | null;
+  /** Câu đánh giá ngắn, rỗng nếu không viết. */
+  review: string;
+  /** Mô tả ảnh, rỗng nếu không viết. */
+  caption: string;
   expenseReminder: { skipCount: number; movedToBell: boolean };
   expense?: Expense | null;
 }
@@ -157,6 +163,51 @@ export interface Moment {
   placeLabel: string | null;
   isPrivate: boolean;
   isHighlight: boolean;
+}
+
+/** Kích thước và dung lượng ảnh đã nén, gửi kèm khi tạo check-in hoặc khoảnh khắc có ảnh. */
+export interface PhotoMeta {
+  width: number;
+  height: number;
+  bytes: number;
+}
+
+/** Phản hồi của POST /trips/:tripId/uploads (API Contract mục 9). */
+export interface UploadTickets {
+  items: { momentId: string; photo: { uploadUrl: string }; thumb: { uploadUrl: string } }[];
+  expiresAt: string;
+}
+
+/** Body của PUT /trips/:tripId/checkins/:checkinId. momentId và photo đi cùng nhau. */
+export interface CheckinInput {
+  tripPlaceId: string;
+  takenAt: string;
+  lat?: number;
+  lng?: number;
+  momentId?: string;
+  photo?: PhotoMeta;
+  rating?: number;
+  review?: string;
+  caption?: string;
+}
+
+export interface CheckinResult {
+  checkin: Checkin;
+  moment: Moment | null;
+}
+
+/** Body của PUT /trips/:tripId/moments/:momentId. */
+export interface MomentInput {
+  source: 'camera' | 'import';
+  photo: PhotoMeta;
+  takenAt: string;
+  note?: string;
+  mood?: Mood;
+  lat?: number;
+  lng?: number;
+  placeLabel?: string;
+  tripPlaceId?: string;
+  checkinId?: string;
 }
 
 export interface Notification {

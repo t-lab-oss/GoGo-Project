@@ -1,4 +1,4 @@
-import type { Checkin, Cluster, PlaceImage, PlaceImageResult, Trip, TripPlace } from 'shared';
+import type { Moment, Checkin, Cluster, PlaceImage, PlaceImageResult, Trip, TripPlace } from 'shared';
 
 const WEEKDAYS = [
   'Chủ Nhật',
@@ -102,6 +102,19 @@ export function findCheckin(cluster: Pick<Cluster, 'checkins'>, placeId: string)
   return cluster.checkins?.find((c) => c.tripPlaceId === placeId) ?? null;
 }
 
+/** Ghi check-in mới vào dữ liệu đang hiển thị: cụm đó chuyển "đã xong" ngay, không đợi tải lại. */
+export function applyCheckin(clusters: readonly Cluster[], checkin: Checkin): Cluster[] {
+  return clusters.map((c) =>
+    c.id === checkin.clusterId
+      ? {
+          ...c,
+          state: 'done',
+          checkins: [...(c.checkins ?? []).filter((k) => k.id !== checkin.id), checkin],
+        }
+      : c,
+  );
+}
+
 /** Giờ "HH:mm" của một thời điểm ISO theo múi giờ chuyến. */
 export function timeOf(iso: string, tz: string): string {
   return zonedParts(new Date(iso), tz).time;
@@ -154,3 +167,53 @@ export function toPlaceImage(r: PlaceImageResult): PlaceImage {
 export function isSelectedImage(selected: PlaceImage | null, r: PlaceImageResult): boolean {
   return selected !== null && selected.url === r.imageUrl;
 }
+
+/**
+ * Ảnh chụp của một check-in: ảnh gắn lúc check-in, không có thì ảnh mới nhất mà thành viên khác
+ * gửi kèm check-in đó. Check-in không ảnh thì null.
+ */
+export function checkinMoment(
+  moments: readonly Moment[],
+  checkin: Pick<Checkin, 'id' | 'momentId'>,
+): Moment | null {
+  return (
+    moments.find((m) => m.id === checkin.momentId) ??
+    moments.find((m) => m.checkinId === checkin.id) ??
+    null
+  );
+}
+
+/** Phần trăm tô của từng ngôi sao trong dãy 5 sao, hỗ trợ nửa sao. */
+export function starFills(value: number): number[] {
+  return [0, 1, 2, 3, 4].map((i) => Math.max(0, Math.min(1, value - i)) * 100);
+}
+
+/** Số sao ứng với vị trí chạm (0 là mép trái, 1 là mép phải), làm tròn lên nửa sao. */
+export function ratingFromPosition(fraction: number): number {
+  return Math.max(0.5, Math.min(5, Math.ceil(fraction * 10) / 2));
+}
+
+export function formatStars(value: number): string {
+  return String(value).replace('.', ',');
+}
+
+/** Lời nhận xét ngắn ứng với số sao đang chấm. */
+export function ratingWord(value: number): string {
+  if (value <= 1.5) return 'Chưa ổn';
+  if (value <= 2.5) return 'Tạm được';
+  if (value <= 3.5) return 'Khá ổn';
+  if (value <= 4.5) return 'Rất thích';
+  return 'Tuyệt vời';
+}
+
+export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
+
+/** Hướng lướt nếu đủ dài và nghiêng rõ về một trục, ngược lại null (coi như chạm hoặc kéo chéo). */
+export function swipeDirection(dx: number, dy: number, minX: number, minY: number): SwipeDirection | null {
+  const x = Math.abs(dx);
+  const y = Math.abs(dy);
+  if (x >= minX && x > y * 1.3) return dx < 0 ? 'left' : 'right';
+  if (y >= minY && y > x * 1.3) return dy < 0 ? 'up' : 'down';
+  return null;
+}
+

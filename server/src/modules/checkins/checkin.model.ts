@@ -21,6 +21,12 @@ const checkinSchema = new Schema(
     lat: { type: Number },
     lng: { type: Number },
     momentId: { type: Schema.Types.ObjectId, default: null },
+    /** Số sao người check-in chấm khi đăng, không bắt buộc. */
+    rating: { type: Number, min: 0.5, max: 5, default: null },
+    /** Mô tả ảnh viết lúc đăng. */
+    caption: { type: String, trim: true, maxlength: 100, default: '' },
+    /** Câu đánh giá ngắn viết lúc đăng. */
+    review: { type: String, trim: true, maxlength: 100, default: '' },
     expenseReminder: { type: reminderSchema, default: () => ({}) },
   },
   { timestamps: true },

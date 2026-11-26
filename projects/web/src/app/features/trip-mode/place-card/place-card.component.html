@@ -8,23 +8,28 @@
       (click)="flipToggle.emit()"
     >
       <span class="absolute inset-0" aria-hidden="true" [style.background]="gradient()"></span>
-      @if (image(); as img) {
+      @if (cover(); as url) {
         <img
           class="absolute inset-0 h-full w-full object-cover"
-          [src]="img.url"
+          [src]="url"
           alt=""
           loading="lazy"
           draggable="false"
-          (error)="onImageError()"
+          (error)="onImageError(url)"
         />
       }
       @if (checkinTime()) {
-        <span class="pill absolute left-3.5 top-3.5 bg-white text-ink">✓ Đã chọn</span>
+        <span class="pill absolute left-3.5 top-3.5 bg-white text-ink">✓ Đã đi</span>
       }
       <span
         class="absolute inset-x-0 bottom-0 block bg-gradient-to-t from-[rgba(8,30,48,0.82)] to-transparent px-[18px] pb-4 pt-14"
       >
         <span class="block text-2xl font-bold tracking-[-0.4px]">{{ place().label }}</span>
+        @if (rating(); as r) {
+          <span class="mt-1 block" role="img" [attr.aria-label]="formatStars(r) + ' trên 5 sao'">
+            <app-stars [value]="r" [size]="17" />
+          </span>
+        }
         <span class="mt-0.5 block text-sm opacity-90">{{ frontMeta() }}</span>
       </span>
     </button>
@@ -52,6 +57,12 @@
             </svg>
             <span>{{ addressText() }}</span>
           </span>
+        }
+        @if (caption()) {
+          <span class="line-clamp-2 text-sm leading-snug text-ink">{{ caption() }}</span>
+        }
+        @if (review()) {
+          <span class="line-clamp-2 text-sm font-semibold leading-snug text-ink">“{{ review() }}”</span>
         }
       </button>
       <button
@@ -94,7 +105,7 @@
       }
       <div class="flex gap-2">
         <a
-          class="btn btn-outline min-h-11 flex-1"
+          class="btn btn-outline min-h-11 flex-1 whitespace-nowrap"
           [href]="directions()"
           target="_blank"
           rel="noopener noreferrer"
@@ -106,10 +117,9 @@
         } @else {
           <button
             type="button"
-            class="btn btn-primary min-h-11 flex-1"
-            disabled
-            title="Sắp có"
-            (click)="$event.stopPropagation()"
+            class="btn btn-primary min-h-11 flex-1 cursor-pointer"
+            [attr.aria-label]="'Check-in ' + place().label"
+            (click)="$event.stopPropagation(); checkin.emit()"
           >
             Check-in
           </button>

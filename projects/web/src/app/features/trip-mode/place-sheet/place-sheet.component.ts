@@ -17,6 +17,7 @@ import { Observable, catchError, map, of, throwError } from 'rxjs';
 import { extractDish } from 'shared';
 import type { Cluster, PlaceImage, PlaceImageResult, TripPlace } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
+import { SwipeDirective } from '../swipe.directive';
 import { PlaceInput, TripModeService } from '../trip-mode.service';
 import {
   clusterRange,
@@ -69,7 +70,7 @@ function errorKeyFor(field: string): ErrorKey | null {
  */
 @Component({
   selector: 'app-place-sheet',
-  imports: [FormsModule],
+  imports: [FormsModule, SwipeDirective],
   templateUrl: './place-sheet.component.html',
   styleUrl: './place-sheet.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

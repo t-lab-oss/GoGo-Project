@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import type { TripPlace } from 'shared';
-import { directionsUrl, formatDistance, placeGradient } from '../trip-mode.logic';
+import type { Moment, TripPlace } from 'shared';
+import { StarsComponent } from '../stars/stars.component';
+import { directionsUrl, formatDistance, formatStars, placeGradient } from '../trip-mode.logic';
 
 /** Thẻ quán vuông của Trip Mode: mặt trước ảnh phủ kín, chạm để lật sang mặt sau (FR-14). */
 @Component({
   selector: 'app-place-card',
+  imports: [StarsComponent],
   templateUrl: './place-card.component.html',
   styleUrl: './place-card.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -18,21 +20,41 @@ export class PlaceCardComponent {
   /** Khoảng cách từ vị trí thiết bị đến quán, km. null khi quán không có toạ độ hoặc chưa có vị trí. */
   readonly distanceKm = input<number | null>(null);
 
+  /** Ảnh chụp lúc check-in hôm nay, thay cho ảnh minh hoạ. */
+  readonly checkinPhoto = input<Moment | null>(null);
+
+  /** Số sao của check-in hôm nay, null nếu không chấm. */
+  readonly rating = input<number | null>(null);
+  /** Câu đánh giá của check-in hôm nay. */
+  readonly review = input('');
+  /** Mô tả ảnh của check-in hôm nay. */
+  readonly caption = input('');
+
+  readonly photoError = output<Moment>();
   readonly flipToggle = output<void>();
   readonly edit = output<void>();
+  readonly checkin = output<void>();
 
-  /** Link ảnh bị lỗi tải: quay về gradient cho tới khi quán đổi ảnh khác. */
-  private readonly failedImageUrl = signal<string | null>(null);
+  /** Các link ảnh tải lỗi: bỏ qua và dùng ảnh kế tiếp (ảnh minh hoạ, rồi gradient). */
+  private readonly failedUrls = signal<readonly string[]>([]);
 
-  protected readonly image = computed(() => {
-    const img = this.place().image;
-    return img && img.url !== this.failedImageUrl() ? img : null;
+  private readonly ownPhoto = computed(() => {
+    const m = this.checkinPhoto();
+    return m && m.photoUrl && !this.failedUrls().includes(m.photoUrl) ? m : null;
   });
-  /** Ghi nguồn (tác giả, giấy phép, Wikimedia Commons) ở mặt sau, kể cả khi ảnh tải lỗi. */
-  protected readonly credit = computed(() => this.place().image);
+  protected readonly cover = computed(() => {
+    const own = this.ownPhoto();
+    if (own) return own.photoUrl;
+    const url = this.place().image?.url;
+    return url && !this.failedUrls().includes(url) ? url : null;
+  });
+  /** Ghi nguồn ảnh minh hoạ ở mặt sau. Đang hiện ảnh tự chụp thì không cần. */
+  protected readonly credit = computed(() => (this.ownPhoto() ? null : this.place().image));
 
-  protected onImageError(): void {
-    this.failedImageUrl.set(this.place().image?.url ?? null);
+  protected onImageError(url: string): void {
+    const own = this.ownPhoto();
+    this.failedUrls.update((list) => [...list, url]);
+    if (own && own.photoUrl === url) this.photoError.emit(own);
   }
 
   protected readonly gradient = computed(() => placeGradient(this.index()));
@@ -41,6 +63,7 @@ export class PlaceCardComponent {
     const d = this.distanceKm();
     return d === null ? null : formatDistance(d);
   });
+  protected readonly formatStars = formatStars;
   /** Mặt trước: khoảng cách (nếu có), rồi giờ check-in hoặc gợi ý chạm để xem. */
   protected readonly frontMeta = computed(() =>
     [this.distanceText(), this.checkinTime() ? `đã check-in ${this.checkinTime()}` : 'chạm để xem']

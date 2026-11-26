@@ -1,5 +1,10 @@
-import type { Cluster, PlaceImage, PlaceImageResult } from 'shared';
+import type { Checkin, Cluster, PlaceImage, PlaceImageResult } from 'shared';
 import {
+  checkinMoment,
+  swipeDirection,
+  ratingFromPosition,
+  starFills,
+  applyCheckin,
   dayNumber,
   directionsUrl,
   formatDayLabel,
@@ -230,3 +235,64 @@ describe('trip-mode.logic', () => {
     expect(toMinutes('11:30')).toBe(690);
   });
 });
+
+describe('applyCheckin', () => {
+  const base = { tripId: 't', name: 'x', type: 'custom' as const, startTime: '00:00', endTime: '23:59', order: 1, placeCount: 1 };
+
+  it('đánh dấu đúng cụm đã xong và không nhân đôi check-in', () => {
+    const checkin = { id: 'k', clusterId: 'a', tripPlaceId: 'p' } as Checkin;
+    const clusters: Cluster[] = [
+      { ...base, id: 'a', state: 'current', checkins: [] },
+      { ...base, id: 'b', state: 'upcoming', checkins: [] },
+    ];
+    const once = applyCheckin(clusters, checkin);
+    const twice = applyCheckin(once, checkin);
+    expect(twice[0]!.state).toBe('done');
+    expect(twice[0]!.checkins).toEqual([checkin]);
+    expect(twice[1]).toBe(clusters[1]!);
+  });
+});
+
+describe('checkinMoment', () => {
+  const moment = (id: string, checkinId: string | null) => ({ id, checkinId }) as never;
+
+  it('ưu tiên ảnh gắn lúc check-in, rồi tới ảnh gửi kèm check-in', () => {
+    const list = [moment('m2', 'c1'), moment('m1', 'c1')];
+    expect(checkinMoment(list, { id: 'c1', momentId: 'm1' })).toBe(list[1]!);
+    expect(checkinMoment(list, { id: 'c1', momentId: null })).toBe(list[0]!);
+  });
+
+  it('check-in không ảnh thì null', () => {
+    expect(checkinMoment([moment('m1', 'c2')], { id: 'c1', momentId: null })).toBeNull();
+  });
+});
+
+describe('đánh giá nửa sao', () => {
+  it('tô từng sao theo giá trị', () => {
+    expect(starFills(3.5)).toEqual([100, 100, 100, 50, 0]);
+    expect(starFills(0)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('đổi vị trí chạm thành số sao', () => {
+    expect(ratingFromPosition(0)).toBe(0.5);
+    expect(ratingFromPosition(0.05)).toBe(0.5);
+    expect(ratingFromPosition(0.65)).toBe(3.5);
+    expect(ratingFromPosition(1)).toBe(5);
+  });
+});
+
+describe('swipeDirection', () => {
+  it('nhận đúng bốn hướng', () => {
+    expect(swipeDirection(-80, 5, 48, 64)).toBe('left');
+    expect(swipeDirection(80, -5, 48, 64)).toBe('right');
+    expect(swipeDirection(4, -90, 48, 64)).toBe('up');
+    expect(swipeDirection(4, 90, 48, 64)).toBe('down');
+  });
+
+  it('quá ngắn hoặc kéo chéo thì bỏ qua', () => {
+    expect(swipeDirection(20, 3, 48, 64)).toBeNull();
+    expect(swipeDirection(2, 50, 48, 64)).toBeNull();
+    expect(swipeDirection(80, 75, 48, 64)).toBeNull();
+  });
+});
+

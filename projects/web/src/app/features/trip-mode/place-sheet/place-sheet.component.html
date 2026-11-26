@@ -9,7 +9,15 @@
     aria-labelledby="ps-title"
     (keydown)="onKeydown($event)"
   >
-    <header class="flex items-center justify-between gap-3 px-5 pb-2 pt-4">
+    <!-- Lướt phần đầu xuống để đóng. -->
+    <div class="flex touch-none justify-center pt-2.5" appSwipe (appSwipe)="$event === 'down' && close()" aria-hidden="true">
+      <span class="h-1.5 w-11 rounded-full bg-line"></span>
+    </div>
+    <header
+      class="flex touch-none items-center justify-between gap-3 px-5 pb-2 pt-1.5"
+      appSwipe
+      (appSwipe)="$event === 'down' && close()"
+    >
       <h2 id="ps-title" class="m-0 text-xl font-bold tracking-[-0.3px]">
         {{ isEdit() ? 'Sửa quán' : 'Thêm quán' }}
       </h2>

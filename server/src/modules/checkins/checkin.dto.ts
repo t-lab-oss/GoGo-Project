@@ -14,6 +14,9 @@ export function toCheckin(c: CheckinDoc): Checkin {
     lat: c.lat ?? null,
     lng: c.lng ?? null,
     momentId: c.momentId ? c.momentId.toString() : null,
+    rating: c.rating ?? null,
+    review: c.review ?? '',
+    caption: c.caption ?? '',
     expenseReminder: {
       skipCount: c.expenseReminder?.skipCount ?? 0,
       movedToBell: c.expenseReminder?.movedToBell ?? false,
