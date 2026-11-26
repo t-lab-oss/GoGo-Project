@@ -107,7 +107,7 @@
               <div class="flex items-center gap-2">
                 <h3 class="m-0 truncate text-base font-bold tracking-[-0.2px]">{{ p.label }}</h3>
               </div>
-              @if (p.manualHours || p.manualPrice) {
+              @if (p.manualHours) {
                 <div class="mt-1.5 flex flex-wrap gap-1.5">
                   @if (p.manualHours; as h) {
                     <span
@@ -129,12 +129,6 @@
                       </svg>
                       {{ h.open }}–{{ h.close }}
                     </span>
-                  }
-                  @if (p.manualPrice) {
-                    <span
-                      class="inline-flex items-center rounded-full bg-[#F6F1F3] px-2.5 py-1 text-xs font-medium text-muted"
-                      >{{ p.manualPrice }}</span
-                    >
                   }
                 </div>
               }
@@ -312,18 +306,6 @@
                     [(ngModel)]="draft.close"
                   />
                 </div>
-              </div>
-              <div>
-                <label class="field-label" [for]="'price-' + p.id">Mức giá</label>
-                <input
-                  [id]="'price-' + p.id"
-                  name="price"
-                  class="field-input"
-                  type="text"
-                  maxlength="40"
-                  placeholder="Vd: 30–60k"
-                  [(ngModel)]="draft.manualPrice"
-                />
               </div>
               <div>
                 <label class="field-label" [for]="'address-' + p.id">Địa chỉ</label>

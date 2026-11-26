@@ -19,12 +19,6 @@ export class TripRecapComponent {
   readonly recap = signal<TripRecap | null>(null);
   readonly error = signal('');
 
-  /** Chi tiêu trung bình mỗi ngày của chuyến. */
-  readonly average = computed(() => {
-    const r = this.recap();
-    return r && r.stats.dayCount > 0 ? Math.round(r.stats.totalSpent / r.stats.dayCount) : 0;
-  });
-
   /** Từng ngày kèm các nơi đã ghé, đánh số liên tục từ đầu chuyến đến cuối chuyến. */
   readonly days = computed(() => {
     const r = this.recap();
