@@ -15,6 +15,12 @@ export const routes: Routes = [
       import('./features/trips/trip-list/trip-list.component').then((m) => m.TripListComponent),
   },
   {
+    path: 'trips/:id/mode',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/trip-mode/trip-mode.component').then((m) => m.TripModeComponent),
+  },
+  {
     path: 'account',
     canActivate: [authGuard],
     loadComponent: () =>

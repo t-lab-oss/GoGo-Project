@@ -1,0 +1,202 @@
+<main class="flex min-h-dvh flex-col gap-3.5 overflow-hidden px-5 pb-6 pt-5">
+  <header class="flex items-center justify-between">
+    <a
+      routerLink="/trips"
+      [queryParams]="{ list: 1 }"
+      class="flex min-h-11 items-center text-xl font-extrabold tracking-[-0.5px] text-brand"
+      aria-label="Go!Go!, về danh sách chuyến đi"
+    >
+      Go!<span class="text-accent">Go!</span>
+    </a>
+    <button type="button" class="icon-btn relative cursor-pointer border-0" aria-label="Thông báo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7" />
+        <path d="M10 20a2 2 0 0 0 4 0" />
+      </svg>
+      <span class="absolute right-2.5 top-2.5 h-[9px] w-[9px] rounded-full border-2 border-white bg-accent" aria-hidden="true"></span>
+    </button>
+  </header>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="m-0 mt-10 text-center text-sm text-muted" role="status">Đang tải chuyến đi…</p>
+    }
+    @case ('error') {
+      <div class="card mt-6 flex flex-col gap-3 p-4" role="alert">
+        <p class="m-0 text-sm">{{ errorMessage() }}</p>
+        <a routerLink="/trips" [queryParams]="{ list: 1 }" class="btn btn-outline">Về danh sách chuyến</a>
+      </div>
+    }
+    @case ('ready') {
+      @if (trip(); as t) {
+        <section class="mt-1" aria-label="Chuyến đi">
+          <div class="text-[13px] font-medium text-muted">{{ dayText() }}</div>
+          <h1 class="m-0 mt-0.5 text-[40px] font-extrabold leading-[1.05] tracking-[-1.4px]">{{ t.name }}</h1>
+          <p class="m-0 mt-1.5 flex items-baseline gap-1.5 text-sm text-muted">
+            Tổng chi tiêu <b class="text-base text-ink">{{ totalSpent() }}</b>
+          </p>
+        </section>
+
+        <nav class="flex border-b border-line" aria-label="Các cụm trong ngày, chạm để chuyển">
+          @for (c of clusters(); track c.id) {
+            <button
+              type="button"
+              class="relative min-h-11 flex-1 cursor-pointer border-0 bg-transparent px-1 text-[15px] transition-colors motion-reduce:transition-none"
+              [class]="
+                c.id === selected()?.id
+                  ? 'font-bold text-brand'
+                  : c.state === 'done'
+                    ? 'font-medium text-muted/70'
+                    : 'font-medium text-ink'
+              "
+              [attr.aria-pressed]="c.id === selected()?.id"
+              (click)="selectCluster(c)"
+            >
+              {{ clusterLabel(c) }}
+              <span class="sr-only">
+                {{ c.state === 'done' ? ', đã xong' : c.state === 'current' ? ', đang tới' : ', sắp tới' }}
+              </span>
+              @if (c.id === selected()?.id) {
+                <span class="absolute inset-x-2 -bottom-px h-[3px] rounded-full bg-brand"></span>
+              }
+            </button>
+          }
+        </nav>
+
+        @if (selected(); as c) {
+          <div class="flex items-center justify-between">
+            <h2 class="m-0 text-[22px] font-bold tracking-[-0.3px]">{{ c.name }}</h2>
+            <div class="flex items-center gap-2">
+            @switch (c.state) {
+              @case ('current') {
+                <span class="rounded-full bg-brand-soft px-[11px] py-[5px] text-xs font-semibold text-brand">Đang tới · {{ formatRange(c) }}</span>
+              }
+              @case ('done') {
+                <span class="rounded-full bg-[#EEF1F4] px-[11px] py-[5px] text-xs font-semibold text-muted">Đã xong</span>
+              }
+              @default {
+                <span class="rounded-full bg-[#EEF1F4] px-[11px] py-[5px] text-xs font-semibold text-muted">Sắp tới · {{ formatRange(c) }}</span>
+              }
+            }
+            <button
+              type="button"
+              class="icon-btn cursor-pointer border-0"
+              [attr.aria-label]="'Thêm quán vào cụm ' + c.name"
+              (click)="openSheet(null)"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            </div>
+          </div>
+
+          @if (places().length > 0) {
+            <div
+              #track
+              class="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-6 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style="padding-inline: calc((100% - 268px) / 2); perspective: 900px; -webkit-overflow-scrolling: touch"
+              role="group"
+              aria-label="Quán trong cụm, lướt ngang để xem thêm"
+              (scroll)="onTrackScroll()"
+            >
+              @for (p of places(); track p.id; let i = $index) {
+                <div
+                  data-card
+                  class="flex-none snap-center snap-always will-change-transform"
+                >
+                  <app-place-card
+                    [place]="p"
+                    [index]="i"
+                    [flipped]="flippedPlaceId() === p.id"
+                    [checkinTime]="checkinTimeFor(p.id)"
+                    [distanceKm]="distanceFor(p)"
+                    (flipToggle)="onCardTap(p.id, i)"
+                    (edit)="openSheet(p)"
+                  />
+                </div>
+              }
+            </div>
+            <div class="-mt-3 flex justify-center gap-1.5" aria-hidden="true">
+              @for (p of places(); track p.id; let i = $index) {
+                <span
+                  class="h-1.5 rounded-[3px] transition-[width] motion-reduce:transition-none"
+                  [class]="i === activeIndex() ? 'w-[18px] bg-ink' : 'w-1.5 bg-line'"
+                ></span>
+              }
+            </div>
+          } @else {
+            <div class="card flex flex-col items-center gap-3 p-4 text-center">
+              <p class="m-0 text-sm text-muted">Cụm này chưa có quán nào.</p>
+              <button type="button" class="btn btn-outline btn-sm min-h-11 cursor-pointer" (click)="openSheet(null)">
+                Thêm quán
+              </button>
+            </div>
+          }
+        }
+
+        <div class="flex-1"></div>
+        <div class="mt-8 grid grid-cols-[1fr_auto_1fr] items-end rounded-[28px] bg-white px-6 pb-3 pt-4 shadow-[0_10px_30px_rgba(11,47,74,0.1)]">
+          <button
+            type="button"
+            class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-start border-0 bg-transparent p-0 text-muted"
+            aria-label="Xem ảnh đã chụp"
+          >
+            <span class="relative block h-12 w-12" aria-hidden="true">
+              <span class="absolute inset-0 -rotate-[9deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #9fd3ee, #0e4f75)"></span>
+              <span class="absolute inset-0 rotate-[7deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffb3cf, #17709f)"></span>
+              <span class="absolute inset-0 rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffd0e1, #3c8fbf)"></span>
+            </span>
+            <span class="text-xs font-semibold">Album</span>
+          </button>
+
+          <div class="flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              class="relative -mt-12 flex h-[92px] w-[92px] cursor-pointer items-center justify-center rounded-full border-0 p-1 shadow-[0_12px_24px_rgba(23,112,159,0.35)] transition-transform active:scale-95 motion-reduce:transition-none"
+              style="background: conic-gradient(from 210deg, #ff7bac, #17709f, #ff7bac)"
+              aria-label="Lưu khoảnh khắc"
+            >
+              <span class="absolute inset-0 animate-ping rounded-full bg-accent/25 motion-reduce:hidden" aria-hidden="true"></span>
+              <span class="relative flex h-full w-full items-center justify-center rounded-full bg-white">
+                <span class="flex h-[66px] w-[66px] items-center justify-center rounded-full bg-brand text-white">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+                    <circle cx="12" cy="13" r="3.5" />
+                  </svg>
+                </span>
+              </span>
+            </button>
+            <span class="text-xs font-bold text-ink" aria-hidden="true">Lưu khoảnh khắc</span>
+          </div>
+
+          <button
+            type="button"
+            class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-end border-0 bg-transparent p-0 text-muted"
+            aria-label="Thêm quán vào cụm đang xem"
+            (click)="openSheet(null)"
+          >
+            <span class="flex h-12 w-12 items-center justify-center rounded-[14px] bg-brand-soft text-brand" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
+                <path d="M12 7.5v5M9.5 10h5" />
+              </svg>
+            </span>
+            <span class="text-xs font-semibold">Thêm quán</span>
+          </button>
+        </div>
+
+        @if (sheet(); as s) {
+          <app-place-sheet
+            [tripId]="t.id"
+            [clusters]="clusters()"
+            [defaultClusterId]="selected()?.id ?? null"
+            [place]="s.place"
+            (saved)="onPlaceSaved($event)"
+            (closed)="closeSheet()"
+          />
+        }
+      }
+    }
+  }
+</main>

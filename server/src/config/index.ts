@@ -14,6 +14,10 @@ const schema = z.object({
   SUPABASE_BUCKET: z.string().default('gogo-moments'),
   GOOGLE_PLACES_API_KEY: z.string().optional(),
   PLACES_DAILY_CAP: z.coerce.number().default(200),
+  // Ảnh minh hoạ cho thẻ quán. Thiếu key thì tính năng tự tắt, phần còn lại của app vẫn chạy.
+  GEMINI_API_KEY: z.string().optional(),
+  // Tên model Gemini đổi theo thời gian: hãy kiểm tra lại trong Google AI Studio nếu gọi bị lỗi.
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
 });
 
 export const config = schema.parse(process.env);

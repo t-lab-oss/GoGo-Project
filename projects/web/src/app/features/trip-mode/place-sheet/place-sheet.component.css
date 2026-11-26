@@ -1,0 +1,26 @@
+:host {
+  display: contents;
+}
+.backdrop {
+  animation: sheet-fade 0.2s ease-out;
+}
+.panel {
+  animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .panel {
+    animation: none;
+  }
+}

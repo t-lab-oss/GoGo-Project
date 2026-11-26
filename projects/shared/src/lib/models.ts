@@ -35,3 +35,137 @@ export interface TripSummary {
   memberCount: number;
   coverUrl: string | null;
 }
+
+export interface TripDay {
+  date: string;
+  index: number;
+}
+
+export interface Trip extends TripSummary {
+  destinationGeo: { lat: number; lng: number } | null;
+  tz: string;
+  currency: string;
+  ownerId: string;
+  members: User[];
+  days: TripDay[];
+  totalSpent: number;
+}
+
+/** Ảnh minh hoạ của quán, lấy từ Wikimedia Commons. Cần ghi tác giả và giấy phép khi hiển thị. */
+export interface PlaceImage {
+  url: string;
+  author: string;
+  license: string;
+  licenseUrl?: string;
+  sourceUrl: string;
+}
+
+/** Một kết quả tìm ảnh từ GET /trips/:id/place-images. */
+export interface PlaceImageResult {
+  id: number;
+  thumbUrl: string;
+  imageUrl: string;
+  alt: string;
+  author: string;
+  license: string;
+  licenseUrl?: string;
+  sourceUrl: string;
+}
+
+export interface TripPlace {
+  id: string;
+  tripId: string;
+  clusterId: string;
+  source: 'link' | 'manual';
+  placeId: string | null;
+  label: string;
+  /** Toạ độ chỉ có khi địa chỉ là link Google Maps đọc được. */
+  lat: number | null;
+  lng: number | null;
+  /** Địa chỉ viết tay. Rỗng khi địa chỉ là link (xem mapsUrl). */
+  address: string;
+  mapsUrl: string | null;
+  note: string;
+  manualHours: { open: string; close: string } | null;
+  manualPrice: string | null;
+  image: PlaceImage | null;
+  order: number;
+  isArchived: boolean;
+}
+
+export interface Checkin {
+  id: string;
+  tripId: string;
+  clusterId: string;
+  tripPlaceId: string;
+  placeLabel: string;
+  userId: string;
+  dayDate: string;
+  takenAt: string;
+  lat: number | null;
+  lng: number | null;
+  momentId: string | null;
+  expenseReminder: { skipCount: number; movedToBell: boolean };
+  expense?: Expense | null;
+}
+
+export interface Expense {
+  checkinId: string;
+  tripPlaceId: string;
+  dayDate: string;
+  amount: number;
+  note: string | null;
+  enteredBy: string;
+  updatedAt: string;
+}
+
+export interface Cluster {
+  id: string;
+  tripId: string;
+  name: string;
+  type: ClusterType;
+  startTime: string;
+  endTime: string;
+  order: number;
+  placeCount: number;
+  /** Chỉ có khi truy vấn kèm ?date= */
+  state?: ClusterState;
+  /** Chỉ có khi kèm ?include=places */
+  places?: TripPlace[];
+  /** Chỉ có khi kèm ?include=checkins (cần date) */
+  checkins?: Checkin[];
+}
+
+export interface Moment {
+  id: string;
+  tripId: string;
+  user: { id: string; username: string };
+  source: MomentSource;
+  checkinId: string | null;
+  tripPlaceId: string | null;
+  photoUrl: string;
+  thumbUrl: string;
+  urlExpiresAt: string;
+  width: number;
+  height: number;
+  note: string;
+  mood: Mood | null;
+  takenAt: string;
+  dayDate: string;
+  lat: number | null;
+  lng: number | null;
+  placeLabel: string | null;
+  isPrivate: boolean;
+  isHighlight: boolean;
+}
+
+export interface Notification {
+  id: string;
+  tripId: string;
+  type: NotificationType;
+  refId: string | null;
+  payload: Record<string, unknown>;
+  dedupeKey: string;
+  readAt: string | null;
+  createdAt: string;
+}
