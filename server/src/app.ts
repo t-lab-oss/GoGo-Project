@@ -3,8 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { config } from './config';
+import { requireAuth } from './middlewares/auth.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import { sessionsRouter } from './modules/auth/auth.routes';
+import { destinationImagesRouter } from './modules/places/place-images.routes';
 import { tripsRouter } from './modules/trips/trips.routes';
 import { usersRouter } from './modules/users/users.routes';
 
@@ -24,6 +26,7 @@ export function createApp() {
   api.use('/sessions', sessionsRouter);
   api.use('/users', usersRouter);
   api.use('/trips', tripsRouter);
+  api.use('/destination-images', requireAuth, destinationImagesRouter);
   app.use('/api', api);
 
   app.use(notFoundHandler);

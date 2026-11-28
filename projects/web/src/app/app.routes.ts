@@ -80,6 +80,12 @@ export const routes: Routes = [
       import('./features/recap/day-recap/day-recap.component').then((m) => m.DayRecapComponent),
   },
   {
+    path: 'trips/:tripId/map',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/trips/trip-map/trip-map.component').then((m) => m.TripMapComponent),
+  },
+  {
     path: 'trips/:id/mode',
     canActivate: [authGuard],
     loadComponent: () =>

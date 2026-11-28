@@ -15,7 +15,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, of, switchMap, tap } from 'rxjs';
-import type { Checkin, Cluster, Moment, TripPlace } from 'shared';
+import type { Checkin, Cluster, Moment, TripPlace, TripWeather } from 'shared';
 import { toApiError } from '../../core/api/api-error';
 import { CameraComponent, type PhotoFlight } from './camera/camera.component';
 import type { CheckinOutcome } from './camera/checkin-submission';
@@ -45,8 +45,11 @@ import { NotificationsComponent } from './notifications/notifications.component'
 import { isNetworkError } from '../../core/offline/network';
 import { OutboxService } from '../../core/offline/outbox.service';
 import { OfflineBannerComponent } from './offline/offline-banner.component';
+import { ExpenseReminderComponent } from './reminder/expense-reminder.component';
 import { pendingReminder, queuedMomentModel, queuedSpent, withQueuedCheckins } from './offline/offline.logic';
 import { AuthService } from '../../core/auth/auth.service';
+import { WeatherSheetComponent } from './weather/weather-sheet.component';
+import { weatherLine } from './weather/weather.logic';
 import { OutsideTripDaysError, TripModeData, TripModeService } from './trip-mode.service';
 
 /** Khoảng cách giữa hai thẻ (px) và độ rộng thẻ, dùng để đổi vị trí cuộn sang chỉ số thẻ. */
@@ -55,7 +58,7 @@ const CARD_GAP = 12;
 
 @Component({
   selector: 'app-trip-mode',
-  imports: [RouterLink, PlaceCardComponent, PlaceSheetComponent, CameraComponent, SwipeDirective, ExpenseEntrySheetComponent, ExpenseListSheetComponent, AlbumComponent, NotificationsComponent, OfflineBannerComponent],
+  imports: [RouterLink, PlaceCardComponent, PlaceSheetComponent, CameraComponent, SwipeDirective, ExpenseEntrySheetComponent, ExpenseListSheetComponent, AlbumComponent, NotificationsComponent, OfflineBannerComponent, ExpenseReminderComponent, WeatherSheetComponent],
   templateUrl: './trip-mode.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -110,10 +113,15 @@ export class TripModeComponent {
   private readonly pending = signal<Checkin | null>(null);
   /** Đã bỏ qua trong lần mở app này: lần mở sau mới nhắc lại. */
   private readonly dismissed = signal<readonly string[]>([]);
-  protected readonly reminder = computed(() => {
+  private readonly reminder = computed(() => {
     const trip = this.trip();
     const c = trip ? pendingReminder(this.pending(), this.queued(), trip.tz) : null;
     return c && !this.dismissed().includes(c.id) ? c : null;
+  });
+  /** Danh sách 0 hoặc 1 phần tử để template dựng lại thẻ nhắc khi sang check-in khác. */
+  protected readonly reminders = computed(() => {
+    const r = this.reminder();
+    return r ? [r] : [];
   });
   protected readonly expenseListOpen = signal(false);
   protected readonly expenseTarget = signal<ExpenseTarget | null>(null);
@@ -122,6 +130,15 @@ export class TripModeComponent {
   protected readonly notificationsOpen = signal(false);
   protected readonly unread = signal(0);
   private expenseOpener: HTMLElement | null = null;
+
+  /** Dự báo của chuyến đang xem. null khi chưa tải được: khi đó không hiện dòng thời tiết. */
+  protected readonly weather = signal<TripWeather | null>(null);
+  protected readonly weatherOpen = signal(false);
+  protected readonly todayWeather = computed(() => {
+    const date = this.data()?.date;
+    const day = this.weather()?.days.find((d) => d.date === date && d.available);
+    return day ? { text: weatherLine(day), rain: day.rain } : null;
+  });
 
   /** Vị trí thiết bị để tính khoảng cách. Từ chối hoặc lỗi thì giữ null và ẩn khoảng cách. */
   private readonly position = signal<{ lat: number; lng: number } | null>(null);
@@ -242,15 +259,21 @@ export class TripModeComponent {
           this.notificationsOpen.set(false);
           this.expenseListOpen.set(false);
           this.expenseTarget.set(null);
+          this.weather.set(null);
+          this.weatherOpen.set(false);
           return this.api.load(params.get('id') ?? '').pipe(
             tap((data) => {
               if (data.fromCache) this.outbox.markOffline();
               this.data.set(data);
+              // Quay lại từ bản đồ thì mở đúng cụm đang xem lúc đi.
+              const cluster = this.route.snapshot.queryParamMap.get('cluster');
+              if (cluster) this.selectedClusterId.set(cluster);
               this.status.set('ready');
               this.loadLatestMoment(data.trip.id);
               this.loadDayMoments(data.trip.id, data.date);
               this.loadReminder(data.trip.id);
               this.loadUnread(data.trip.id);
+              this.loadWeather(data.trip.id, data.date);
             }),
             catchError((err: unknown) => {
               this.errorMessage.set(
@@ -523,21 +546,10 @@ export class TripModeComponent {
     this.showNotice('Chưa bỏ qua được. Hãy kiểm tra mạng rồi thử lại.');
   }
 
-  protected onReminderSwipe(direction: SwipeDirection, checkin: Checkin): void {
-    if (direction === 'left' || direction === 'right') this.skipReminder(checkin);
-  }
-
-  protected enterExpense(checkin: Checkin): void {
-    const cluster = this.clusters().find((c) => c.id === checkin.clusterId);
-    this.rememberExpenseOpener();
-    this.expenseReturnTo = null;
-    this.expenseTarget.set({
-      checkinId: checkin.id,
-      placeLabel: checkin.placeLabel,
-      subtitle: cluster?.name ?? '',
-      amount: null,
-      note: '',
-    });
+  protected onReminderSaved(checkin: Checkin, { queued }: { queued: boolean }): void {
+    this.dismissed.update((list) => [...list, checkin.id]);
+    this.showNotice(queued ? 'Đã lưu trên máy, sẽ tự gửi khi có mạng.' : 'Đã lưu chi tiêu.');
+    if (!queued) this.refresh();
   }
 
   protected openExpenseList(): void {
@@ -566,6 +578,37 @@ export class TripModeComponent {
     this.expenseReturnTo = 'notifications';
     this.notificationsOpen.set(false);
     this.expenseTarget.set(target);
+  }
+
+  protected openWeather(): void {
+    this.rememberExpenseOpener();
+    this.weatherOpen.set(true);
+  }
+
+  protected closeWeather(): void {
+    this.weatherOpen.set(false);
+    this.restoreExpenseFocus();
+  }
+
+  /** Tải dự báo cho dòng thời tiết, hôm nay mưa thì tạo thêm thông báo. */
+  private loadWeather(tripId: string, date: string): void {
+    this.api
+      .weather(tripId)
+      .pipe(
+        switchMap((weather) => {
+          if (this.trip()?.id !== tripId) return of(false);
+          this.weather.set(weather);
+          return this.api.notifyRain(tripId, date, weather);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (rainy) => {
+          if (rainy) this.loadUnread(tripId);
+        },
+        // Thời tiết chỉ là thông tin thêm: lỗi hay mất mạng thì bỏ qua.
+        error: () => undefined,
+      });
   }
 
   private loadUnread(tripId: string): void {

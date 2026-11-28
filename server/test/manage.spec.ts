@@ -98,6 +98,37 @@ describe('quản lý chuyến', () => {
   });
 });
 
+describe('ảnh đại diện chuyến đi', () => {
+  const cover = {
+    url: 'https://upload.wikimedia.org/wikipedia/commons/a/a1/Da_Lat.jpg',
+    author: 'Nguyễn An',
+    license: 'CC BY-SA 4.0',
+    sourceUrl: 'https://commons.wikimedia.org/wiki/File:Da_Lat.jpg',
+  };
+  const body = { name: 'Đà Lạt', destination: 'Đà Lạt', startDate: '2026-11-22', endDate: '2026-11-24' };
+
+  it('lưu khi tạo, hiện ở danh sách; sửa trường khác thì giữ nguyên; null thì gỡ', async () => {
+    const created = await call('post', '/trips').send({ ...body, cover });
+    expect(created.status).toBe(201);
+    expect(created.body.trip).toMatchObject({ cover, coverUrl: cover.url });
+    const tripId = created.body.trip.id as string;
+    expect((await call('get', '/trips')).body.items[0].coverUrl).toBe(cover.url);
+
+    const renamed = await call('patch', `/trips/${tripId}`).send({ name: 'Đà Lạt 2' });
+    expect(renamed.body.trip.cover).toEqual(cover);
+
+    const removed = await call('patch', `/trips/${tripId}`).send({ cover: null });
+    expect(removed.body.trip).toMatchObject({ cover: null, coverUrl: null });
+  });
+
+  it('chỉ nhận ảnh Wikimedia kèm đủ thông tin ghi nguồn', async () => {
+    const foreign = await call('post', '/trips').send({ ...body, cover: { ...cover, url: 'https://example.com/a.jpg' } });
+    expect(foreign.status).toBe(400);
+    const unsigned = await call('post', '/trips').send({ ...body, cover: { ...cover, author: '' } });
+    expect(unsigned.status).toBe(400);
+  });
+});
+
 describe('cụm và quán', () => {
   it('thêm, sửa, xoá cụm tự tạo; cụm mặc định được bảo vệ', async () => {
     const tripId = await newTrip();

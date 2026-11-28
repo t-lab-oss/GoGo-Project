@@ -85,6 +85,16 @@
               >
                 {{ p.label.charAt(0).toUpperCase() }}
               </div>
+              @if (p.image; as img) {
+                <!-- Ảnh minh hoạ chọn lúc thêm quán. Ảnh lỗi thì ẩn đi, lộ chữ cái bên dưới. -->
+                <img
+                  class="absolute inset-0 h-12 w-12 rounded-2xl object-cover"
+                  [src]="img.url"
+                  alt=""
+                  loading="lazy"
+                  (error)="$any($event.target).hidden = true"
+                />
+              }
               @if (visitsToday(p) > 0) {
                 <span
                   class="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-brand text-white"
@@ -107,36 +117,8 @@
               <div class="flex items-center gap-2">
                 <h3 class="m-0 truncate text-base font-bold tracking-[-0.2px]">{{ p.label }}</h3>
               </div>
-              @if (p.manualHours) {
-                <div class="mt-1.5 flex flex-wrap gap-1.5">
-                  @if (p.manualHours; as h) {
-                    <span
-                      class="inline-flex items-center gap-1 rounded-full bg-[#F6F1F3] px-2.5 py-1 text-xs font-medium text-muted"
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 7v5l3 2" />
-                      </svg>
-                      {{ h.open }}–{{ h.close }}
-                    </span>
-                  }
-                </div>
-              }
               @if (p.address) {
                 <p class="m-0 mt-1.5 text-[13px] leading-snug text-muted">{{ p.address }}</p>
-              }
-              @if (p.note) {
-                <p class="m-0 mt-1.5 text-[13px] leading-snug text-muted">{{ p.note }}</p>
               }
             </div>
             <div class="flex flex-none gap-1.5">
@@ -185,13 +167,9 @@
               }
               <button
                 type="button"
-                class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-0 transition-colors"
-                [class]="
-                  editingId() === p.id ? 'bg-brand-soft text-brand' : 'bg-[#F6F1F3] text-muted'
-                "
-                [attr.aria-label]="(editingId() === p.id ? 'Đóng chỉnh sửa ' : 'Sửa ') + p.label"
-                [attr.aria-expanded]="editingId() === p.id"
-                (click)="editingId() === p.id ? editingId.set('') : startEdit(p)"
+                class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-0 bg-[#F6F1F3] text-muted"
+                [attr.aria-label]="'Sửa quán ' + p.label"
+                (click)="openSheet(p)"
               >
                 <svg
                   width="17"
@@ -269,78 +247,6 @@
             }
           }
 
-          @if (editingId() === p.id) {
-            <form
-              class="flex flex-col gap-3 border-t border-line bg-[#FFFBFC] p-3.5"
-              (ngSubmit)="saveEdit(p)"
-            >
-              <div>
-                <label class="field-label" [for]="'note-' + p.id">Ghi chú của bạn</label>
-                <textarea
-                  [id]="'note-' + p.id"
-                  name="note"
-                  class="field-input h-[84px] resize-none py-3"
-                  maxlength="500"
-                  placeholder="Vd: gọi món A, đi sớm kẻo đông"
-                  [(ngModel)]="draft.note"
-                ></textarea>
-              </div>
-              <div class="flex gap-3">
-                <div class="flex-1">
-                  <label class="field-label" [for]="'open-' + p.id">Mở cửa</label>
-                  <input
-                    [id]="'open-' + p.id"
-                    name="open"
-                    class="field-input"
-                    type="time"
-                    [(ngModel)]="draft.open"
-                  />
-                </div>
-                <div class="flex-1">
-                  <label class="field-label" [for]="'close-' + p.id">Đóng cửa</label>
-                  <input
-                    [id]="'close-' + p.id"
-                    name="close"
-                    class="field-input"
-                    type="time"
-                    [(ngModel)]="draft.close"
-                  />
-                </div>
-              </div>
-              <div>
-                <label class="field-label" [for]="'address-' + p.id">Địa chỉ</label>
-                <input
-                  [id]="'address-' + p.id"
-                  name="address"
-                  class="field-input"
-                  type="text"
-                  maxlength="200"
-                  [(ngModel)]="draft.address"
-                />
-              </div>
-              <div>
-                <label class="field-label" [for]="'url-' + p.id">Link Google Maps</label>
-                <input
-                  [id]="'url-' + p.id"
-                  name="url"
-                  class="field-input"
-                  type="url"
-                  placeholder="https://maps.app.goo.gl/…"
-                  [(ngModel)]="draft.mapsUrl"
-                />
-              </div>
-              <button type="submit" class="btn btn-primary" [disabled]="saving()">
-                {{ saving() ? 'Đang lưu…' : 'Lưu' }}
-              </button>
-              <button
-                type="button"
-                class="btn h-11 bg-transparent text-danger"
-                (click)="removePlace(p)"
-              >
-                Xoá khỏi cụm
-              </button>
-            </form>
-          }
         </article>
       </ng-template>
 
@@ -378,7 +284,7 @@
           type="button"
           class="pointer-events-auto flex h-14 cursor-pointer items-center gap-3 rounded-full border-0 pl-2 pr-6 text-[15px] font-bold text-brand shadow-[0_10px_24px_rgba(23,112,159,0.18)] ring-1 ring-white/80 transition-transform active:scale-95"
           style="background: linear-gradient(135deg, #cfe9f7, #ffd6e6)"
-          (click)="openAdd()"
+          (click)="openSheet(null)"
         >
           <span
             class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-brand shadow-[0_2px_6px_rgba(23,112,159,0.15)]"
@@ -401,82 +307,17 @@
         </button>
       </div>
 
-      @if (showAdd()) {
-        <app-bottom-sheet (closed)="showAdd.set(false)">
-          <h2 class="m-0 text-[22px] font-bold tracking-[-0.3px]">Thêm quán vào {{ c.name }}</h2>
-          <form class="flex flex-col gap-3" (ngSubmit)="addPlace()">
-            <div>
-              <label class="field-label" for="new-label">Tên quán</label>
-              <input
-                id="new-label"
-                name="label"
-                class="field-input"
-                type="text"
-                maxlength="80"
-                required
-                [(ngModel)]="newPlace.label"
-              />
-            </div>
-            <div>
-              <label class="field-label" for="new-address">Địa chỉ</label>
-              <input
-                id="new-address"
-                name="address"
-                class="field-input"
-                type="text"
-                maxlength="200"
-                aria-describedby="new-address-hint"
-                [(ngModel)]="newPlace.address"
-              />
-              <p id="new-address-hint" class="m-0 mt-1 text-xs text-muted">
-                Cần địa chỉ hoặc link Google Maps.
-              </p>
-            </div>
-            <div>
-              <label class="field-label" for="new-url">Link Google Maps</label>
-              <input
-                id="new-url"
-                name="url"
-                class="field-input"
-                type="url"
-                placeholder="https://maps.app.goo.gl/…"
-                [(ngModel)]="newPlace.mapsUrl"
-              />
-            </div>
-            <div>
-              <label class="field-label" for="new-note">Ghi chú</label>
-              <input
-                id="new-note"
-                name="note"
-                class="field-input"
-                type="text"
-                maxlength="500"
-                [(ngModel)]="newPlace.note"
-              />
-            </div>
-            @if (addError()) {
-              <p class="m-0 text-sm text-danger" role="alert">{{ addError() }}</p>
-            }
-            <button
-              type="submit"
-              class="btn btn-primary"
-              [disabled]="
-                adding() ||
-                !newPlace.label.trim() ||
-                (!newPlace.address.trim() && !newPlace.mapsUrl.trim())
-              "
-            >
-              {{ adding() ? 'Đang lưu…' : 'Thêm quán' }}
-            </button>
-            <button
-              type="button"
-              class="btn h-11 bg-transparent text-muted"
-              (click)="showAdd.set(false)"
-            >
-              Huỷ
-            </button>
-          </form>
-        </app-bottom-sheet>
+      @if (sheet(); as s) {
+        <app-place-sheet
+          [tripId]="tripId"
+          [clusters]="clusters()"
+          [defaultClusterId]="c.id"
+          [place]="s.place"
+          [removable]="true"
+          (saved)="onPlaceSaved($event)"
+          (removeRequested)="removePlace($event)"
+          (closed)="closeSheet()"
+        />
       }
 
       @if (showCluster()) {

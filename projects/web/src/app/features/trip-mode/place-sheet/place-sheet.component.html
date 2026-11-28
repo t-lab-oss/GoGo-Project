@@ -183,6 +183,17 @@
           }
         </div>
 
+        @if (removable() && place(); as p) {
+          <button
+            type="button"
+            class="min-h-11 flex-none cursor-pointer self-center border-0 bg-transparent px-4 text-sm font-semibold text-danger"
+            [disabled]="saving()"
+            (click)="removeRequested.emit(p)"
+          >
+            Xoá khỏi cụm
+          </button>
+        }
+
         @if (formError()) {
           <p class="m-0 rounded-xl bg-accent-soft px-3 py-2.5 text-sm text-danger" role="alert">{{ formError() }}</p>
         }

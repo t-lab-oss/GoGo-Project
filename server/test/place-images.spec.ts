@@ -168,6 +168,11 @@ describe('htmlToText', () => {
     expect(htmlToText('&lt;script&gt;alert(1)&lt;/script&gt;', 80)).not.toMatch(/[<>]/);
   });
 
+  it('link kiểu wiki chỉ giữ phần tên', () => {
+    expect(htmlToText('[//commons.wikimedia.org/wiki/User:An Nguyễn An]', 80)).toBe('Nguyễn An');
+    expect(htmlToText('Ảnh [https://example.org/x] của An [1]', 80)).toBe('Ảnh của An [1]');
+  });
+
   it('cắt theo độ dài tối đa và trả rỗng với dữ liệu không phải chuỗi', () => {
     expect(htmlToText('a'.repeat(200), 80)).toHaveLength(80);
     expect(htmlToText(undefined, 80)).toBe('');
@@ -539,6 +544,50 @@ describe('GET /api/trips/:tripId/place-images', () => {
       expect((await images('bánh cuốn')).status).toBe(200);
       expect(callsTo(spy, 'commons.wikimedia.org')).toHaveLength(2);
     });
+  });
+});
+
+describe('GET /api/destination-images', () => {
+  const search = (q: string, token = hany) =>
+    request(app).get('/api/destination-images').query({ q }).set(auth(token));
+
+  it('cần đăng nhập và không gọi mạng khi thiếu token', async () => {
+    const spy = mockFetch({});
+    const res = await request(app).get('/api/destination-images').query({ q: 'Đà Lạt' });
+    expect(res.status).toBe(401);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('không cần thuộc chuyến nào; tìm đúng tên, không gọi Gemini, xin ảnh rộng', async () => {
+    const spy = mockFetch({ commons: () => commonsReply([page(1)]) });
+    const res = await search('Đà Lạt', outsider);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(searchedKeywords(spy)).toEqual(['Đà Lạt']);
+    expect(callsTo(spy, 'generativelanguage.googleapis.com')).toHaveLength(0);
+    expect(new URL(String(spy.mock.calls[0]![0])).searchParams.get('iiurlwidth')).toBe('960');
+  });
+
+  it('chỉ lấy ảnh nằm ngang', async () => {
+    const portrait = page(2, { info: { width: 900, height: 1200 } });
+    mockFetch({ commons: () => commonsReply([page(1), portrait]) });
+    const res = await search('Đà Lạt');
+    expect(res.body.items.map((i: { id: number }) => i.id)).toEqual([1]);
+  });
+
+  it('q quá ngắn hoặc quá dài: 400', async () => {
+    const spy = mockFetch({});
+    expect((await search('a')).status).toBe(400);
+    expect((await search('x'.repeat(81))).status).toBe(400);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('không dùng chung cache với tìm ảnh món cùng từ khoá', async () => {
+    config.GEMINI_API_KEY = undefined;
+    const spy = mockFetch({ commons: () => commonsReply([page(1)]) });
+    await images('Huế');
+    await search('Huế');
+    expect(callsTo(spy, 'commons.wikimedia.org')).toHaveLength(2);
   });
 });
 

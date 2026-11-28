@@ -1,3 +1,6 @@
+/* Đặt ở đây (không phải angular.json) để dev server đang chạy cũng nhận ngay, không cần khởi động lại. */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -47,5 +50,69 @@
   }
   .icon-btn {
     @apply flex h-11 w-11 flex-none items-center justify-center rounded-full bg-white text-ink shadow-[0_2px_8px_rgba(11,47,74,0.08)];
+  }
+}
+
+/* Pin trên bản đồ do Leaflet tạo ra, nằm ngoài phạm vi CSS của component. */
+.gg-pin svg {
+  display: block;
+  filter: drop-shadow(0 2px 3px rgb(11 47 74 / 0.35));
+  transform-origin: 50% 100%;
+  transition: transform 0.15s;
+}
+/* Ghim đỏ của mốc: nhấp nhô nhẹ, chân ghim phát sóng để không lẫn với pin quán. */
+.gg-anchor svg {
+  position: relative;
+  display: block;
+  filter: drop-shadow(0 4px 5px rgb(11 47 74 / 0.4));
+  animation: gg-bob 1.6s ease-in-out infinite;
+}
+.gg-anchor__wave {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  border: 3px solid #e11d2e;
+  border-radius: 50%;
+  background: rgb(225 29 46 / 0.2);
+  opacity: 0;
+  animation: gg-wave 1.8s ease-out infinite;
+}
+.gg-anchor__wave--late {
+  animation-delay: 0.9s;
+}
+@keyframes gg-bob {
+  50% {
+    transform: translateY(-7px);
+  }
+}
+@keyframes gg-wave {
+  from {
+    transform: scale(0.3);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gg-anchor svg,
+  .gg-anchor__wave {
+    animation: none;
+  }
+  /* Không động đậy thì giữ một vòng đứng yên quanh chân ghim. */
+  .gg-anchor__wave {
+    opacity: 0.7;
+  }
+}
+.gg-pin--on svg {
+  transform: scale(1.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gg-pin svg {
+    transition: none;
   }
 }

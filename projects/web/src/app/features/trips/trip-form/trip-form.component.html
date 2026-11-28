@@ -37,14 +37,82 @@
           type="text"
           maxlength="80"
           required
-          [(ngModel)]="form.destination"
+          [ngModel]="form.destination"
+          (ngModelChange)="onDestinationChange($event)"
+          (blur)="findImages()"
         />
         @if (fieldErrors()['destination']) {
           <p class="m-0 mt-1 text-[13px] text-danger">{{ fieldErrors()['destination'] }}</p>
         }
       </div>
+
+      <!-- Ảnh đại diện: tìm theo điểm đến, không bắt buộc. Vùng live luôn có trong DOM. -->
+      <div class="flex flex-col gap-2 empty:hidden" aria-live="polite">
+        @if (cover(); as img) {
+          <figure class="card m-0 overflow-hidden">
+            <img class="block h-[150px] w-full object-cover" [src]="img.url" alt="Ảnh đại diện đã chọn" />
+            <figcaption class="flex items-center gap-3 px-3 py-1.5">
+              <span class="min-w-0 flex-1 text-xs leading-snug text-muted">
+                Ảnh: {{ img.author }} · {{ img.license }} ·
+                <a class="text-brand underline" [href]="img.sourceUrl" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>
+              </span>
+              <button type="button" class="btn btn-outline btn-sm min-h-11" (click)="cover.set(null)">Gỡ ảnh</button>
+            </figcaption>
+          </figure>
+        }
+
+        @switch (imageState()) {
+          @case ('idle') {
+            @if (form.destination.trim().length >= 2) {
+              <button type="button" class="btn btn-outline btn-sm min-h-11 self-start" (click)="findImages()">
+                {{ cover() ? 'Đổi ảnh đại diện' : 'Tìm ảnh đại diện' }}
+              </button>
+            }
+          }
+          @case ('loading') {
+            <p class="m-0 animate-pulse text-[13px] font-semibold text-muted motion-reduce:animate-none">
+              Đang tìm ảnh {{ form.destination }}…
+            </p>
+          }
+          @case ('error') {
+            <div class="flex items-center justify-between gap-3 rounded-xl bg-accent-soft px-3 py-1">
+              <p class="m-0 text-[13px] text-danger">{{ imageMessage() }}</p>
+              <button type="button" class="min-h-11 flex-none cursor-pointer border-0 bg-transparent px-2 text-[13px] font-semibold text-brand" (click)="findImages()">
+                Thử lại
+              </button>
+            </div>
+          }
+          @case ('done') {
+            @if (imageResults().length === 0) {
+              <p class="m-0 text-[13px] text-muted">Không tìm thấy ảnh cho “{{ form.destination }}”.</p>
+            } @else {
+              <p id="cover-heading" class="field-label m-0">Chọn ảnh đại diện (không bắt buộc)</p>
+              <div role="radiogroup" aria-labelledby="cover-heading" class="grid grid-cols-3 gap-2">
+                @for (r of imageResults(); track r.id) {
+                  <button
+                    type="button"
+                    role="radio"
+                    class="relative aspect-[4/3] min-h-11 cursor-pointer overflow-hidden rounded-xl border-2 bg-white p-0"
+                    [class]="isSelectedImage(cover(), r) ? 'border-brand' : 'border-transparent'"
+                    [attr.aria-checked]="isSelectedImage(cover(), r)"
+                    [attr.aria-label]="r.alt"
+                    (click)="pickImage(r)"
+                  >
+                    <img class="h-full w-full object-cover" [src]="r.thumbUrl" alt="" loading="lazy" />
+                    @if (isSelectedImage(cover(), r)) {
+                      <span class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10" /></svg>
+                      </span>
+                    }
+                  </button>
+                }
+              </div>
+            }
+          }
+        }
+      </div>
       <div class="flex gap-3">
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
           <label class="field-label" for="startDate">Ngày đi</label>
           <input
             id="startDate"
@@ -55,7 +123,7 @@
             [(ngModel)]="form.startDate"
           />
         </div>
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
           <label class="field-label" for="endDate">Ngày về</label>
           <input
             id="endDate"

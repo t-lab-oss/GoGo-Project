@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   OnInit,
   afterNextRender,
@@ -14,14 +15,15 @@ import type { Notification } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { trapTab } from '../dialog-keys';
 import type { ExpenseTarget } from '../expense/expense-entry-sheet.component';
-import { SwipeDirective } from '../swipe.directive';
-import { notificationText, relativeTime, type SwipeDirection } from '../trip-mode.logic';
+import { notificationText, relativeTime } from '../trip-mode.logic';
 import { TripModeService } from '../trip-mode.service';
 
-/** Danh sách thông báo của chuông (FR-26). Lướt trái một thẻ để đánh dấu đã đọc. */
+/**
+ * Bảng thông báo xổ ra dưới chuông (FR-26). Chưa đọc thì có chấm đỏ, chạm vào một dòng là đánh dấu
+ * đã đọc; dòng nhắc tiền còn thiếu thì mở luôn ô nhập tiền.
+ */
 @Component({
   selector: 'app-notifications',
-  imports: [SwipeDirective],
   templateUrl: './notifications.component.html',
   styleUrl: './notifications.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,8 +45,12 @@ export class NotificationsComponent implements OnInit {
   protected readonly loaded = signal(false);
   protected readonly error = signal('');
 
+  /** Bảng có thể đã đóng khi máy chủ trả lời, lúc đó không phát output nữa. */
+  private destroyed = false;
+
   constructor() {
-    afterNextRender(() => this.panel().nativeElement.querySelector<HTMLElement>('[data-autofocus]')?.focus());
+    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
+    afterNextRender(() => this.panel().nativeElement.focus());
   }
 
   ngOnInit(): void {
@@ -55,6 +61,7 @@ export class NotificationsComponent implements OnInit {
     this.error.set('');
     this.api.notifications(this.tripId()).subscribe({
       next: (res) => {
+        if (this.destroyed) return;
         this.items.set(res.items);
         this.setUnread(res.unreadCount);
         this.loaded.set(true);
@@ -71,30 +78,9 @@ export class NotificationsComponent implements OnInit {
     return relativeTime(n.createdAt, new Date(), this.tz());
   }
 
-  protected onSwipe(direction: SwipeDirection, n: Notification): void {
-    if (direction === 'left') this.markRead(n);
-  }
-
-  protected markRead(n: Notification): void {
-    if (n.readAt) return;
-    this.api.markNotificationRead(this.tripId(), n.id).subscribe({
-      next: (saved) => {
-        this.items.update((list) => list.map((x) => (x.id === saved.id ? saved : x)));
-        this.setUnread(Math.max(0, this.unread() - 1));
-      },
-      error: (err: unknown) => this.error.set(toApiError(err).message),
-    });
-  }
-
-  protected markAll(): void {
-    this.api.markAllNotificationsRead(this.tripId()).subscribe({
-      next: () => this.load(),
-      error: (err: unknown) => this.error.set(toApiError(err).message),
-    });
-  }
-
-  protected openExpense(n: Notification): void {
-    if (!n.refId) return;
+  protected open(n: Notification): void {
+    this.markRead(n);
+    if (!notificationText(n).needsAmount || !n.refId) return;
     this.enterExpense.emit({
       checkinId: n.refId,
       placeLabel: String(n.payload['label'] ?? 'Chi tiêu'),
@@ -102,6 +88,36 @@ export class NotificationsComponent implements OnInit {
       amount: null,
       note: '',
     });
+  }
+
+  /** Đổi giao diện ngay, máy chủ báo lỗi thì trả lại như cũ. */
+  private markRead(n: Notification): void {
+    if (n.readAt) return;
+    this.error.set('');
+    this.replace({ ...n, readAt: new Date().toISOString() });
+    this.setUnread(Math.max(0, this.unread() - 1));
+    this.api.markNotificationRead(this.tripId(), n.id).subscribe({
+      next: (saved) => this.replace(saved),
+      error: (err: unknown) => {
+        if (this.destroyed) return;
+        this.replace(n);
+        this.setUnread(this.unread() + 1);
+        this.error.set(toApiError(err).message);
+      },
+    });
+  }
+
+  protected markAll(): void {
+    this.api.markAllNotificationsRead(this.tripId()).subscribe({
+      next: () => {
+        if (!this.destroyed) this.load();
+      },
+      error: (err: unknown) => this.error.set(toApiError(err).message),
+    });
+  }
+
+  private replace(saved: Notification): void {
+    this.items.update((list) => list.map((x) => (x.id === saved.id ? saved : x)));
   }
 
   private setUnread(count: number): void {

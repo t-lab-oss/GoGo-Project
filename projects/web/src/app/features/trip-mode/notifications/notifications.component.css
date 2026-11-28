@@ -1,27 +1,18 @@
 :host {
   display: contents;
 }
-.screen {
-  animation: album-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+.panel {
+  transform-origin: top right;
+  animation: panel-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.photo {
-  animation: photo-in 0.2s ease-out;
-}
-@keyframes album-up {
+@keyframes panel-in {
   from {
-    transform: translateY(40px);
+    transform: translateY(-6px) scale(0.96);
     opacity: 0;
-  }
-}
-@keyframes photo-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .screen,
-  .photo {
+  .panel {
     animation: none;
   }
 }

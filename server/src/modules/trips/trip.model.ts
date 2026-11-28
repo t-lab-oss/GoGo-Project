@@ -1,4 +1,5 @@
 import { model, Schema, type InferSchemaType, type Types } from 'mongoose';
+import { commonsImageSchema } from '../../lib/commons-image';
 
 const geoSchema = new Schema({ lat: Number, lng: Number }, { _id: false });
 const shareSchema = new Schema(
@@ -22,6 +23,8 @@ const tripSchema = new Schema(
     ownerId: { type: Schema.Types.ObjectId, required: true },
     memberIds: { type: [Schema.Types.ObjectId], default: [] },
     coverMomentId: { type: Schema.Types.ObjectId },
+    /** Ảnh đại diện chọn từ Wikimedia Commons theo điểm đến. null nghĩa là đã gỡ. */
+    cover: { type: commonsImageSchema },
     share: { type: shareSchema },
   },
   { timestamps: true },

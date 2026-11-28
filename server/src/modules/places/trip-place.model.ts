@@ -1,18 +1,7 @@
 import { model, Schema, type InferSchemaType, type Types } from 'mongoose';
+import { commonsImageSchema } from '../../lib/commons-image';
 
 const hoursSchema = new Schema({ open: String, close: String }, { _id: false });
-
-// Ảnh minh hoạ lấy từ Wikimedia Commons. Lưu đường link và thông tin ghi nguồn, không tải ảnh về.
-const imageSchema = new Schema(
-  {
-    url: { type: String, required: true, maxlength: 500 },
-    author: { type: String, required: true, maxlength: 80 },
-    license: { type: String, required: true, maxlength: 60 },
-    licenseUrl: { type: String, maxlength: 500 },
-    sourceUrl: { type: String, required: true, maxlength: 500 },
-  },
-  { _id: false },
-);
 
 const tripPlaceSchema = new Schema(
   {
@@ -29,7 +18,8 @@ const tripPlaceSchema = new Schema(
     note: { type: String, default: '', maxlength: 500 },
     manualHours: { type: hoursSchema },
     manualPrice: { type: String, maxlength: 40 },
-    image: { type: imageSchema },
+    // Ảnh minh hoạ lấy từ Wikimedia Commons.
+    image: { type: commonsImageSchema },
     order: { type: Number, default: 0 },
     addedBy: { type: Schema.Types.ObjectId },
     // Luôn ghi false thay vì bỏ trống: partial index không hỗ trợ $exists:false

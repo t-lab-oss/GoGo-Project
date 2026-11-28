@@ -17,13 +17,14 @@
       class="icon-btn relative cursor-pointer border-0"
       [attr.aria-label]="unread() > 0 ? 'Thông báo, ' + unread() + ' chưa đọc' : 'Thông báo'"
       (click)="openNotifications()"
+      aria-haspopup="dialog"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7" />
         <path d="M10 20a2 2 0 0 0 4 0" />
       </svg>
       @if (unread() > 0) {
-        <span class="absolute right-2.5 top-2.5 h-[9px] w-[9px] rounded-full border-2 border-white bg-accent" aria-hidden="true"></span>
+        <span class="absolute right-2 top-2 h-[11px] w-[11px] rounded-full border-2 border-white bg-alert" aria-hidden="true"></span>
       }
     </button>
   </header>
@@ -42,6 +43,16 @@
       @if (trip(); as t) {
         <app-offline-banner [tripId]="t.id" />
 
+        <!-- Nhắc nhập tiền (FR-16) ở trên cùng. Theo dõi theo id để đổi check-in thì ô nhập trống lại. -->
+        @for (r of reminders(); track r.id) {
+          <app-expense-reminder
+            [tripId]="t.id"
+            [checkin]="r"
+            (saved)="onReminderSaved(r, $event)"
+            (skipped)="skipReminder(r)"
+          />
+        }
+
         <section class="mt-1" aria-label="Chuyến đi">
           <div class="text-[13px] font-medium text-muted">{{ dayText() }}</div>
           <h1 class="m-0 mt-0.5 text-[40px] font-extrabold leading-[1.05] tracking-[-1.4px]">{{ t.name }}</h1>
@@ -53,6 +64,18 @@
             Tổng chi tiêu <b class="text-base text-ink">{{ totalSpent() }}</b>
             <span aria-hidden="true">›</span>
           </button>
+          @if (todayWeather(); as w) {
+            <button
+              type="button"
+              class="flex min-h-11 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left text-sm"
+              [class]="w.rain ? 'font-semibold text-brand' : 'text-muted'"
+              aria-haspopup="dialog"
+              (click)="openWeather()"
+            >
+              <span><span class="sr-only">Thời tiết hôm nay: </span>{{ w.text }}</span>
+              <span aria-hidden="true">›</span>
+            </button>
+          }
         </section>
 
         <nav class="flex border-b border-line" aria-label="Các cụm trong ngày, chạm để chuyển">
@@ -80,25 +103,6 @@
             </button>
           }
         </nav>
-
-        @if (reminder(); as r) {
-          <!-- Nhắc nhập tiền (FR-16). Lướt ngang để bỏ qua. -->
-          <div
-            class="reminder card touch-pan-y select-none border-[1.5px] border-accent p-3.5"
-            data-noswipe
-            appSwipe
-            (appSwipe)="onReminderSwipe($event, r)"
-          >
-            <div class="flex items-baseline justify-between gap-3">
-              <span class="min-w-0 font-semibold">{{ r.placeLabel }} hết bao nhiêu?</span>
-              <span class="flex-none text-xs text-muted">Nhắc lần {{ r.expenseReminder.skipCount + 1 }}/2</span>
-            </div>
-            <div class="mt-2.5 flex gap-2">
-              <button type="button" class="btn btn-primary min-h-11 flex-1 cursor-pointer text-sm" (click)="enterExpense(r)">Nhập tiền</button>
-              <button type="button" class="btn btn-outline min-h-11 flex-1 cursor-pointer text-sm" (click)="skipReminder(r)">Bỏ qua</button>
-            </div>
-          </div>
-        }
 
         @if (selected(); as c) {
           <div class="flex items-center justify-between">
@@ -296,6 +300,10 @@
             (changed)="onAlbumChanged()"
             (closed)="closeAlbum()"
           />
+        }
+
+        @if (weatherOpen() && weather(); as forecast) {
+          <app-weather-sheet [weather]="forecast" (closed)="closeWeather()" />
         }
 
         @if (expenseListOpen()) {

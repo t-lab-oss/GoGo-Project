@@ -1,16 +1,14 @@
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import type { Types } from 'mongoose';
 import { z } from 'zod';
 import { isObjectId } from '../../../../projects/shared/src/public-api';
+import { config } from '../../config';
 import { AppError } from '../../lib/app-error';
 import { now } from '../../lib/clock';
+import { commonsImageInput } from '../../lib/commons-image';
 import { parseAllowedMapsUrl } from '../../lib/maps-url';
-import {
-  hasNoHtml,
-  isCommonsImageUrl,
-  isCommonsSourceUrl,
-  isLicenseUrl,
-} from '../../lib/place-images';
+import { shortestRoute } from '../../lib/routing';
 import { timeIn } from '../../lib/trip-dates';
 import { CheckinModel } from '../checkins/checkin.model';
 import { ClusterModel, type ClusterDoc } from '../clusters/cluster.model';
@@ -47,31 +45,6 @@ const objectId = (what: string) => z.string().refine(isObjectId, `${what} không
 /** Chuỗi rỗng coi như không nhập. */
 const emptyToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
 
-const image = z.object({
-  url: z.string().refine(isCommonsImageUrl, 'Ảnh phải là link https của Wikimedia.').pipe(z.string().max(500)),
-  author: z
-    .string()
-    .trim()
-    .min(1, 'Thiếu tên tác giả ảnh.')
-    .max(80, 'Tên tác giả tối đa 80 ký tự.')
-    .refine((v) => hasNoHtml(v), 'Tên tác giả không được chứa thẻ HTML.'),
-  license: z
-    .string()
-    .trim()
-    .min(1, 'Thiếu giấy phép của ảnh.')
-    .max(60, 'Giấy phép tối đa 60 ký tự.')
-    .refine((v) => hasNoHtml(v), 'Giấy phép không được chứa thẻ HTML.'),
-  licenseUrl: z
-    .string()
-    .refine(isLicenseUrl, 'Link giấy phép phải là link https của Creative Commons hoặc Wikimedia Commons.')
-    .pipe(z.string().max(500))
-    .optional(),
-  sourceUrl: z
-    .string()
-    .refine(isCommonsSourceUrl, 'Link nguồn ảnh phải là link https của Wikimedia Commons.')
-    .pipe(z.string().max(500)),
-});
-
 const fields = {
   label: z.string().trim().min(1, 'Hãy nhập tên quán.').max(80, 'Tên quán tối đa 80 ký tự.'),
   clusterId: objectId('Cụm'),
@@ -83,7 +56,7 @@ const fields = {
   note: z.string().max(500, 'Ghi chú tối đa 500 ký tự.'),
   manualHours: hours.nullable(),
   manualPrice: z.preprocess(emptyToNull, z.string().trim().max(40, 'Mức giá tối đa 40 ký tự.').nullable()),
-  image: image.nullable(),
+  image: commonsImageInput.nullable(),
 };
 
 const createSchema = z.object({
@@ -254,6 +227,39 @@ placesRouter.post('/', async (req, res) => {
 
 placesRouter.get('/:tripPlaceId', async (req, res) => {
   res.json({ place: toTripPlace(await loadPlace(req)) });
+});
+
+/** Máy chủ tính đường là dịch vụ công cộng dùng chung nên giới hạn 30 lần / phút mỗi người. */
+const routeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.userId ?? 'anonymous',
+  skip: () => config.NODE_ENV === 'test',
+  handler: (_req, _res, next) =>
+    next(new AppError(429, 'RATE_LIMITED', 'Bạn xem đường hơi nhanh, hãy đợi một chút rồi thử lại.')),
+});
+
+/** Toạ độ trên query là chữ; chuỗi rỗng không được hiểu thành 0. */
+const queryNumber = (max: number) =>
+  z
+    .string('Thiếu toạ độ điểm xuất phát.')
+    .trim()
+    .min(1)
+    .transform(Number)
+    .pipe(z.number().min(-max).max(max));
+const routeQuery = z.object({ fromLat: queryNumber(90), fromLng: queryNumber(180) });
+
+// Đường ngắn nhất từ một điểm (mốc trên bản đồ) đến quán. Chỉ đọc, không lưu gì.
+placesRouter.get('/:tripPlaceId/route', routeLimiter, async (req, res) => {
+  const place = await loadPlace(req);
+  const { fromLat, fromLng } = routeQuery.parse(req.query);
+  if (place.lat == null || place.lng == null) {
+    throw new AppError(422, 'PLACE_WITHOUT_LOCATION', 'Quán này chưa có vị trí trên bản đồ.');
+  }
+  const route = await shortestRoute({ lat: fromLat, lng: fromLng }, { lat: place.lat, lng: place.lng });
+  res.set('Cache-Control', 'no-store').json(route);
 });
 
 placesRouter.patch('/:tripPlaceId', async (req, res) => {

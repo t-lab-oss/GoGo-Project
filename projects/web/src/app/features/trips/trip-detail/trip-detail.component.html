@@ -19,6 +19,21 @@
     <p class="m-0 text-sm text-muted">Đang tải…</p>
   } @else {
     @if (trip(); as t) {
+      @if (t.cover; as img) {
+        <figure class="m-0">
+          <img
+            class="block h-[160px] w-full rounded-[22px] object-cover"
+            [src]="img.url"
+            [alt]="'Ảnh ' + t.destination"
+          />
+          <figcaption class="mt-1 text-right text-[11px] text-muted">
+            Ảnh: {{ img.author }} · {{ img.license }} ·
+            <a class="text-brand underline" [href]="img.sourceUrl" target="_blank" rel="noopener noreferrer"
+              >Wikimedia Commons</a
+            >
+          </figcaption>
+        </figure>
+      }
       <section>
         <h1 class="m-0 text-[30px] font-extrabold leading-[1.1] tracking-[-1px]">{{ t.name }}</h1>
         <div class="mt-1.5 flex flex-wrap items-center gap-2">
@@ -86,6 +101,22 @@
           <div class="mt-1 truncate text-[22px] font-extrabold tracking-[-0.5px]">Xem lại</div>
         </a>
       </div>
+
+      <a
+        [routerLink]="['/trips', tripId, 'map']"
+        class="card group flex items-center gap-3 border border-line px-4 py-3 no-underline transition-colors hover:border-brand"
+      >
+        <span class="flex h-10 w-10 flex-none items-center justify-center rounded-[10px] bg-brand-soft text-brand" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" />
+          </svg>
+        </span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-bold">Bản đồ quán</span>
+          <span class="block text-xs text-muted">Xem mọi quán của chuyến theo cụm</span>
+        </span>
+        <span class="flex-none text-muted" aria-hidden="true">›</span>
+      </a>
 
       <h2 class="m-0 mt-1 text-[19px] font-bold tracking-[-0.3px]">Chuẩn bị theo cụm</h2>
       @for (c of clusters(); track c.id) {

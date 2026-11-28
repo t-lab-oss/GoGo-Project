@@ -44,6 +44,7 @@
             "outputPath": "dist/web",
             "index": "projects/web/src/index.html",
             "browser": "projects/web/src/main.ts",
+            "allowedCommonJsDependencies": ["leaflet"],
             "polyfills": [
               "zone.js"
             ],

@@ -11,13 +11,10 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { toApiError } from '../../../core/api/api-error';
-import { isNetworkError } from '../../../core/offline/network';
-import { OutboxService } from '../../../core/offline/outbox.service';
 import { trapTab } from '../dialog-keys';
 import { SwipeDirective } from '../swipe.directive';
 import { formatVnd, pressAmountKey } from '../trip-mode.logic';
-import { TripModeService } from '../trip-mode.service';
+import { ExpenseSaver } from './expense-saver';
 
 export interface ExpenseTarget {
   checkinId: string;
@@ -36,8 +33,7 @@ export interface ExpenseTarget {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ExpenseEntrySheetComponent implements OnInit {
-  private readonly api = inject(TripModeService);
-  private readonly outbox = inject(OutboxService);
+  private readonly saver = inject(ExpenseSaver);
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');
 
   readonly tripId = input.required<string>();
@@ -99,45 +95,23 @@ export class ExpenseEntrySheetComponent implements OnInit {
     }
     this.saving.set(true);
     this.error.set('');
-    const { checkinId } = this.target();
-    // Check-in còn chờ gửi thì tiền phải xếp sau nó.
-    if (this.outbox.hasCheckin(checkinId)) {
-      void this.queue();
-      return;
-    }
-    this.api.putExpense(this.tripId(), checkinId, Number(this.digits()), this.note().trim()).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.saved.emit({ queued: false });
-      },
-      error: (err: unknown) => {
-        if (isNetworkError(err)) {
-          this.outbox.markOffline();
-          void this.queue();
-          return;
-        }
-        this.saving.set(false);
-        this.error.set(toApiError(err).message);
-      },
-    });
-  }
-
-  private async queue(): Promise<void> {
     const { checkinId, placeLabel } = this.target();
-    try {
-      await this.outbox.enqueue(this.tripId(), {
-        kind: 'expense',
+    this.saver
+      .save(this.tripId(), {
         checkinId,
         placeLabel,
         amount: Number(this.digits()),
         note: this.note().trim(),
+      })
+      .subscribe({
+        next: (result) => {
+          this.saving.set(false);
+          this.saved.emit(result);
+        },
+        error: (err: Error) => {
+          this.saving.set(false);
+          this.error.set(err.message);
+        },
       });
-      this.saved.emit({ queued: true });
-      void this.outbox.flush();
-    } catch {
-      this.error.set('Máy chưa lưu được khoản chi. Hãy kiểm tra mạng rồi thử lại.');
-    } finally {
-      this.saving.set(false);
-    }
   }
 }

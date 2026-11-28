@@ -12,6 +12,17 @@ const MIN_SIDE_PX = 400;
 const MIN_RATIO = 0.6;
 const MAX_RATIO = 1.8;
 
+export type ImageSubject = 'dish' | 'destination';
+
+/**
+ * Ảnh món ăn tìm thêm bằng từ khoá tiếng Anh (nếu có Gemini). Ảnh đại diện chuyến đi hiển thị dạng
+ * băng ngang nên cần ảnh nằm ngang và rộng hơn; tên địa danh giữ nguyên, không dịch.
+ */
+const PROFILES: Record<ImageSubject, { translate: boolean; minRatio: number; width: number }> = {
+  dish: { translate: true, minRatio: MIN_RATIO, width: 600 },
+  destination: { translate: false, minRatio: 1.2, width: 960 },
+};
+
 /** Wikimedia yêu cầu User-Agent nhận diện được ứng dụng. Không đưa thông tin cá nhân vào. */
 const USER_AGENT = 'GoGoTripApp/0.1 (personal project)';
 
@@ -80,6 +91,8 @@ export function htmlToText(html: unknown, max: number): string {
       return ENTITIES[code.toLowerCase()] ?? m;
     })
     .replace(/[<>]/g, ' ')
+    // Có tác giả ghi link theo cú pháp wiki "[//trang tên]": chỉ giữ phần tên.
+    .replace(/\[(?:https?:)?\/\/[^\s\]]+(?:\s+([^\]]*))?\]/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
   return text.slice(0, max).trim();
@@ -208,7 +221,7 @@ function altFromTitle(title: unknown): string {
 }
 
 /** Chỉ nhận ảnh jpeg/png đủ lớn, tỉ lệ vừa phải, có giấy phép và link nguồn hợp lệ. */
-export function toImageItem(page: CommonsPage): PlaceImageItem | null {
+export function toImageItem(page: CommonsPage, minRatio = MIN_RATIO): PlaceImageItem | null {
   const info = page.imageinfo?.[0];
   if (!info || typeof page.pageid !== 'number') return null;
   if (info.mime !== 'image/jpeg' && info.mime !== 'image/png') return null;
@@ -216,7 +229,7 @@ export function toImageItem(page: CommonsPage): PlaceImageItem | null {
   if (typeof width !== 'number' || typeof height !== 'number' || width <= 0 || height <= 0) return null;
   if (Math.min(width, height) < MIN_SIDE_PX) return null;
   const ratio = width / height;
-  if (ratio < MIN_RATIO || ratio > MAX_RATIO) return null;
+  if (ratio < minRatio || ratio > MAX_RATIO) return null;
   if (!isCommonsImageUrl(info.thumburl) || info.thumburl.length > 500) return null;
   if (!isCommonsSourceUrl(info.descriptionurl) || info.descriptionurl.length > 500) return null;
 
@@ -247,7 +260,7 @@ function upstreamError(message?: string): AppError {
   );
 }
 
-async function commonsSearch(keyword: string): Promise<CommonsPage[]> {
+async function commonsSearch(keyword: string, width: number): Promise<CommonsPage[]> {
   const url = new URL('https://commons.wikimedia.org/w/api.php');
   const params: Record<string, string> = {
     action: 'query',
@@ -259,7 +272,7 @@ async function commonsSearch(keyword: string): Promise<CommonsPage[]> {
     gsrlimit: String(SEARCH_LIMIT),
     prop: 'imageinfo',
     iiprop: 'url|size|mime|extmetadata',
-    iiurlwidth: '600',
+    iiurlwidth: String(width),
     iiextmetadatafilter: 'Artist|LicenseShortName|LicenseUrl',
   };
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -292,19 +305,20 @@ async function commonsSearch(keyword: string): Promise<CommonsPage[]> {
 }
 
 /**
- * Tìm ảnh minh hoạ cho một món trên Wikimedia Commons (không cần khoá).
- * Tìm bằng tên gốc; có Gemini thì tìm thêm bằng từ khoá tiếng Anh. Kết quả theo tên gốc đứng trước.
+ * Tìm ảnh cho một món hoặc một điểm đến trên Wikimedia Commons (không cần khoá).
+ * Tìm bằng tên gốc; món ăn mà có Gemini thì tìm thêm bằng từ khoá tiếng Anh. Kết quả theo tên gốc đứng trước.
  */
-export async function searchPlaceImages(q: string): Promise<PlaceImageItem[]> {
-  const key = cacheKey(q);
+export async function searchPlaceImages(q: string, subject: ImageSubject = 'dish'): Promise<PlaceImageItem[]> {
+  const profile = PROFILES[subject];
+  const key = `${subject}:${cacheKey(q)}`;
   const cached = readCache(key);
   if (cached) return cached;
 
-  const english = await geminiKeyword(q);
+  const english = profile.translate ? await geminiKeyword(q) : null;
   const keywords = [q];
   if (english && english.toLocaleLowerCase('en') !== q.toLocaleLowerCase('en')) keywords.push(english);
 
-  const settled = await Promise.allSettled(keywords.map((k) => commonsSearch(k)));
+  const settled = await Promise.allSettled(keywords.map((k) => commonsSearch(k, profile.width)));
   const ok = settled.filter((r): r is PromiseFulfilledResult<CommonsPage[]> => r.status === 'fulfilled');
   if (ok.length === 0) {
     const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected');
@@ -315,7 +329,7 @@ export async function searchPlaceImages(q: string): Promise<PlaceImageItem[]> {
   const items: PlaceImageItem[] = [];
   for (const result of ok) {
     for (const page of result.value) {
-      const item = toImageItem(page);
+      const item = toImageItem(page, profile.minRatio);
       if (!item || seen.has(item.id)) continue;
       seen.add(item.id);
       items.push(item);

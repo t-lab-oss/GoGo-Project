@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type { Moment, TripPlace } from 'shared';
 import { StarsComponent } from '../stars/stars.component';
 import { directionsUrl, formatDistance, formatStars, placeGradient } from '../trip-mode.logic';
@@ -6,7 +7,7 @@ import { directionsUrl, formatDistance, formatStars, placeGradient } from '../tr
 /** Thẻ quán vuông của Trip Mode: mặt trước ảnh phủ kín, chạm để lật sang mặt sau (FR-14). */
 @Component({
   selector: 'app-place-card',
-  imports: [StarsComponent],
+  imports: [RouterLink, StarsComponent],
   templateUrl: './place-card.component.html',
   styleUrl: './place-card.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

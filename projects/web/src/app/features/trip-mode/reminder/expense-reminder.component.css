@@ -1,0 +1,149 @@
+/* ---------- Mặt kính ---------- */
+.glass {
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.42));
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  border: 1px solid rgb(255 255 255 / 0.95);
+  box-shadow:
+    0 8px 22px rgb(23 112 159 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+/* Vệt sáng quét chéo qua mặt kính, thỉnh thoảng một lần. */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background: linear-gradient(105deg, transparent 20%, rgb(255 255 255 / 0.75) 50%, transparent 80%);
+  transform: translateX(-120%) skewX(-12deg);
+  animation: shine 4.5s ease-in-out 1.6s infinite;
+  pointer-events: none;
+}
+
+/* ---------- Quầng màu phía sau ---------- */
+.blob {
+  position: absolute;
+  width: 190px;
+  height: 130px;
+  pointer-events: none;
+  animation: drift 7s ease-in-out infinite alternate;
+}
+.blob-pink {
+  top: -8px;
+  left: 0;
+  background: radial-gradient(closest-side, rgb(255 123 172 / 0.6), transparent);
+}
+.blob-blue {
+  right: 0;
+  bottom: -8px;
+  background: radial-gradient(closest-side, rgb(23 112 159 / 0.42), transparent);
+  animation-delay: -3.5s;
+}
+
+/* ---------- Đồng xu ---------- */
+.coin {
+  background: linear-gradient(145deg, #ff9dc2, #17709f);
+  box-shadow: 0 3px 8px rgb(23 112 159 / 0.3);
+  animation: flip 4.5s ease-in-out 0.7s infinite;
+}
+
+/* ---------- Dải "Bỏ qua" ---------- */
+.behind {
+  background: linear-gradient(90deg, rgb(23 112 159 / 0.15), rgb(23 112 159 / 0.85));
+  transition: background-color 0.15s;
+}
+.behind.armed {
+  background: linear-gradient(90deg, #0b2f4a, #17709f);
+}
+
+/* ---------- Chuyển động của thẻ ---------- */
+
+/* Đang kéo thì thẻ bám sát ngón tay; thả ra mới trượt mượt về chỗ hoặc ra ngoài. */
+.settle {
+  transition: transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+/* Gợi ý lúc mới hiện: rung như chuông, trượt sang phải lộ dải "Bỏ qua", nảy lại rồi nghỉ. Lặp 3 lần. */
+.nudge {
+  animation: nudge 4.5s ease-in-out 0.7s 3;
+}
+.chevron {
+  animation: chevron 1.2s ease-in-out infinite;
+}
+@keyframes nudge {
+  0%,
+  42%,
+  100% {
+    transform: translateX(0) rotate(0);
+  }
+  2.5% {
+    transform: translateX(-5px) rotate(-1.4deg);
+  }
+  5% {
+    transform: translateX(5px) rotate(1.3deg);
+  }
+  7.5% {
+    transform: translateX(-4px) rotate(-1deg);
+  }
+  10% {
+    transform: translateX(3px) rotate(0.7deg);
+  }
+  12.5% {
+    transform: translateX(-2px) rotate(-0.3deg);
+  }
+  15%,
+  18% {
+    transform: translateX(0) rotate(0);
+  }
+  26%,
+  31% {
+    transform: translateX(104px) rotate(1.5deg);
+  }
+  37% {
+    transform: translateX(-5px) rotate(-0.4deg);
+  }
+}
+@keyframes shine {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  30%,
+  100% {
+    transform: translateX(340%) skewX(-12deg);
+  }
+}
+@keyframes drift {
+  to {
+    transform: translate(26px, 6px) scale(1.12);
+  }
+}
+@keyframes flip {
+  0%,
+  70%,
+  100% {
+    transform: rotateY(0);
+  }
+  85% {
+    transform: rotateY(360deg);
+  }
+}
+@keyframes chevron {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settle {
+    transition: none;
+  }
+  .nudge,
+  .chevron,
+  .coin,
+  .blob,
+  .glass::after {
+    animation: none;
+  }
+}

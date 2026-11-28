@@ -1,16 +1,26 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import type { Subscription } from 'rxjs';
+import type { PlaceImage, PlaceImageResult } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { TripsApi } from '../../../core/api/trips.api';
 import { formatDM } from '../../../core/format';
 import { BackLinkComponent } from '../../../ui/back-link.component';
 import { BottomSheetComponent } from '../../../ui/bottom-sheet.component';
+import { isSelectedImage, toPlaceImage } from '../../trip-mode/trip-mode.logic';
 
 interface ShrinkWarning {
   removedDays: string[];
   counts: { checkins: number; expenses: number };
 }
+
+/** Chờ người dùng ngừng gõ điểm đến rồi mới tìm ảnh. */
+const IMAGE_SEARCH_DELAY_MS = 800;
+
+/** So điểm đến không tính hoa thường và khoảng trắng thừa. */
+const sameDestination = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase('vi-VN') === b.trim().toLocaleLowerCase('vi-VN');
 
 /** Dùng chung cho "Chuyến đi mới" (không có tripId) và "Sửa chuyến đi". */
 @Component({
@@ -40,7 +50,21 @@ export class TripFormComponent {
 
   readonly formatDM = formatDM;
 
+  // Ảnh đại diện: tìm trên Wikimedia Commons theo điểm đến, người dùng tự chọn.
+  readonly cover = signal<PlaceImage | null>(null);
+  readonly imageState = signal<'idle' | 'loading' | 'done' | 'error'>('idle');
+  readonly imageMessage = signal('');
+  readonly imageResults = signal<PlaceImageResult[]>([]);
+  readonly isSelectedImage = isSelectedImage;
+  /** Điểm đến của ảnh đang chọn. Đổi sang nơi khác thì bỏ ảnh cũ. */
+  private coverDestination = '';
+  /** Điểm đến đã tìm ảnh gần nhất. */
+  private searched = '';
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  private search: Subscription | undefined;
+
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.cancelSearch());
     if (this.tripId) {
       this.api.getTrip(this.tripId).subscribe({
         next: (trip) => {
@@ -49,6 +73,8 @@ export class TripFormComponent {
           this.form.startDate = trip.startDate;
           this.form.endDate = trip.endDate;
           this.savedName.set(trip.name);
+          this.cover.set(trip.cover);
+          this.coverDestination = trip.destination;
           this.loading.set(false);
         },
         error: (err) => {
@@ -75,18 +101,73 @@ export class TripFormComponent {
 
   readonly backLink = computed(() => (this.tripId ? ['/trips', this.tripId] : ['/trips']));
 
+  // ---------- Ảnh đại diện ----------
+
+  onDestinationChange(value: string): void {
+    this.form.destination = value;
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.findImages(), IMAGE_SEARCH_DELAY_MS);
+  }
+
+  /** Tìm ảnh cho điểm đến đang nhập. Chỉ gọi lại khi điểm đến đổi hoặc lần trước lỗi. */
+  findImages(): void {
+    clearTimeout(this.searchTimer);
+    this.dropStaleCover();
+    const q = this.form.destination.trim();
+    if (sameDestination(q, this.searched) && this.imageState() !== 'error') return;
+    this.cancelSearch();
+    this.searched = q;
+    this.imageResults.set([]);
+    this.imageMessage.set('');
+    if (q.length < 2) {
+      this.imageState.set('idle');
+      return;
+    }
+    this.imageState.set('loading');
+    this.search = this.api.searchDestinationImages(q).subscribe({
+      next: (items) => {
+        this.imageResults.set(items);
+        this.imageState.set('done');
+      },
+      error: (err) => {
+        this.imageMessage.set(toApiError(err).message);
+        this.imageState.set('error');
+      },
+    });
+  }
+
+  pickImage(result: PlaceImageResult): void {
+    // Chọn lại đúng ảnh đang chọn thì bỏ chọn.
+    const unpick = isSelectedImage(this.cover(), result);
+    this.cover.set(unpick ? null : toPlaceImage(result));
+    this.coverDestination = this.form.destination;
+  }
+
+  private dropStaleCover(): void {
+    if (this.cover() && !sameDestination(this.coverDestination, this.form.destination)) {
+      this.cover.set(null);
+    }
+  }
+
+  private cancelSearch(): void {
+    clearTimeout(this.searchTimer);
+    this.search?.unsubscribe();
+  }
+
   save(confirmShrink = false): void {
+    this.dropStaleCover();
     this.error.set('');
     this.fieldErrors.set({});
     this.shrink.set(null);
     this.saving.set(true);
 
+    const input = { ...this.form, cover: this.cover() };
     const request = this.tripId
       ? this.api.updateTrip(this.tripId, {
-          ...this.form,
+          ...input,
           ...(confirmShrink ? { confirmShrink: true } : {}),
         })
-      : this.api.createTrip(this.form);
+      : this.api.createTrip(input);
 
     request.subscribe({
       next: (trip) => {

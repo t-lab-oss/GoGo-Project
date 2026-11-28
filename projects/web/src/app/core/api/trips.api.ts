@@ -9,7 +9,8 @@ import type {
   Expense,
   ExpensesByDay,
   ExpensesByPlace,
-  PlaceInput,
+  PlaceImageResult,
+  PlaceRoute,
   Trip,
   TripInput,
   TripPlace,
@@ -58,6 +59,20 @@ export class TripsApi {
     return this.http.delete<void>(`/api/trips/${tripId}/members/${userId}`);
   }
 
+  /** Gợi ý ảnh đại diện theo điểm đến (Wikimedia Commons). Không lưu gì. */
+  searchDestinationImages(q: string): Observable<PlaceImageResult[]> {
+    return this.http
+      .get<{ items: PlaceImageResult[] }>('/api/destination-images', { params: { q } })
+      .pipe(map((r) => r.items));
+  }
+
+  /** Đường ngắn nhất cho xe máy từ một điểm đến quán. */
+  routeToPlace(tripId: string, placeId: string, from: { lat: number; lng: number }): Observable<PlaceRoute> {
+    return this.http.get<PlaceRoute>(`/api/trips/${tripId}/places/${placeId}/route`, {
+      params: { fromLat: from.lat, fromLng: from.lng },
+    });
+  }
+
   // Cụm
   listClusters(tripId: string, withPlaces = false): Observable<Cluster[]> {
     let params = new HttpParams();
@@ -93,18 +108,6 @@ export class TripsApi {
     return this.http
       .get<{ items: TripPlace[] }>(`/api/trips/${tripId}/places`, { params })
       .pipe(map((r) => r.items));
-  }
-
-  createPlace(tripId: string, input: PlaceInput): Observable<TripPlace> {
-    return this.http
-      .post<{ place: TripPlace }>(`/api/trips/${tripId}/places`, input)
-      .pipe(map((r) => r.place));
-  }
-
-  updatePlace(tripId: string, placeId: string, input: Partial<PlaceInput>): Observable<TripPlace> {
-    return this.http
-      .patch<{ place: TripPlace }>(`/api/trips/${tripId}/places/${placeId}`, input)
-      .pipe(map((r) => r.place));
   }
 
   deletePlace(tripId: string, placeId: string): Observable<void> {

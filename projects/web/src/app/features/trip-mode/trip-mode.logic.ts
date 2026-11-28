@@ -269,7 +269,7 @@ export function groupByDay<T extends { dayDate: string }>(items: readonly T[]): 
   return groups;
 }
 
-/** Tiêu đề, nội dung của một thông báo; needsAmount = còn nút "Nhập tiền". */
+/** Tiêu đề, nội dung của một thông báo; needsAmount = chạm vào thì mở ô nhập tiền. */
 export function notificationText(n: Pick<Notification, 'type' | 'payload'>): {
   title: string;
   body: string;
@@ -283,7 +283,7 @@ export function notificationText(n: Pick<Notification, 'type' | 'payload'>): {
         ? { title: label, body: `Đã nhập ${formatVnd(amount)}.`, needsAmount: false }
         : {
             title: `Thêm số tiền cho ${label}`,
-            body: 'Đã bỏ qua 2 lần nên không nhắc ở trang chủ nữa.',
+            body: 'Chạm để nhập số tiền.',
             needsAmount: true,
           };
     }

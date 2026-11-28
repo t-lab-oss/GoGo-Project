@@ -41,11 +41,22 @@
       <h2 class="m-0 text-[13px] font-semibold text-muted">{{ group.title }}</h2>
       @for (trip of group.trips; track trip.id) {
         <a [routerLink]="linkFor(trip)" class="card block overflow-hidden no-underline">
+          <!-- Nền chuyển màu vẫn nằm dưới, ảnh lỗi thì ẩn đi và lộ nền. -->
           <div
             aria-hidden="true"
             [style.background]="gradientFor(trip.id)"
             [class]="group.status === 'ongoing' ? 'h-[150px]' : 'h-24'"
-          ></div>
+          >
+            @if (trip.coverUrl) {
+              <img
+                class="block h-full w-full object-cover"
+                [src]="trip.coverUrl"
+                alt=""
+                loading="lazy"
+                (error)="$any($event.target).hidden = true"
+              />
+            }
+          </div>
           <div class="flex items-center gap-2.5 px-3.5 py-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">

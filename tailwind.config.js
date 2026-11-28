@@ -11,6 +11,8 @@ module.exports = {
         muted: { DEFAULT: '#56708A' },
         line: { DEFAULT: '#F1DCE5' },
         danger: { DEFAULT: '#C2185B' },
+        /** Chấm đỏ báo có thông báo mới. */
+        alert: { DEFAULT: '#E5383B' },
       },
       fontFamily: { sans: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'] },
     },

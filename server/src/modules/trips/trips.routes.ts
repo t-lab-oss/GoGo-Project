@@ -4,6 +4,7 @@ import { AppError } from '../../lib/app-error';
 import { requireAuth } from '../../middlewares/auth.middleware';
 import { loadTrip } from '../../middlewares/trip-member.middleware';
 import { now } from '../../lib/clock';
+import { commonsImageInput } from '../../lib/commons-image';
 import { buildDays, dateIn, diffDays, isValidDate } from '../../lib/trip-dates';
 import { CheckinModel } from '../checkins/checkin.model';
 import { checkinsRouter } from '../checkins/checkins.routes';
@@ -22,6 +23,7 @@ import { TripPlaceModel } from '../places/trip-place.model';
 import { recapRouter } from '../recap/recap.routes';
 import { uploadsRouter } from '../uploads/uploads.routes';
 import { toUserDto, UserModel } from '../users/user.model';
+import { weatherRouter } from '../weather/weather.routes';
 import { toTrip, toTripSummary } from './trip.dto';
 import { TripModel, type TripDoc } from './trip.model';
 
@@ -98,6 +100,7 @@ const createSchema = z.object({
   endDate: dateField,
   tz: z.string().max(60).refine(isTimeZone, 'Múi giờ không hợp lệ.').optional(),
   destinationGeo: z.object({ lat: z.number(), lng: z.number() }).optional(),
+  cover: commonsImageInput.nullable().optional(),
 });
 
 const patchSchema = createSchema.partial().extend({ confirmShrink: z.boolean().optional() });
@@ -236,3 +239,4 @@ tripsRouter.use('/:tripId/uploads', loadTrip, uploadsRouter);
 tripsRouter.use('/:tripId/moments', loadTrip, momentsRouter);
 tripsRouter.use('/:tripId/notifications', loadTrip, notificationsRouter);
 tripsRouter.use('/:tripId/recap', loadTrip, recapRouter);
+tripsRouter.use('/:tripId/weather', loadTrip, weatherRouter);

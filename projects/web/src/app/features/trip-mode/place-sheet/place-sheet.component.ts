@@ -86,8 +86,12 @@ export class PlaceSheetComponent implements OnInit {
   /** Có quán thì là sửa, không thì là thêm mới. */
   readonly place = input<TripPlace | null>(null);
 
+  /** Có nút "Xoá quán" khi sửa. Nơi dùng tự hỏi lại và xoá. */
+  readonly removable = input(false);
+
   readonly saved = output<TripPlace>();
   readonly closed = output<void>();
+  readonly removeRequested = output<TripPlace>();
 
   protected readonly isEdit = computed(() => this.place() !== null);
   protected readonly formatRange = clusterRange;
@@ -404,8 +408,11 @@ export class PlaceSheetComponent implements OnInit {
       return;
     }
     const image = this.image();
+    const place = this.place();
+    // Quán cũ có thể có cả địa chỉ viết tay lẫn link: link không đổi thì giữ nguyên địa chỉ.
+    const keptAddress = place && link && link.url === place.mapsUrl ? place.address : '';
     const input: PlaceInput = link
-      ? { clusterId: this.clusterId(), label, address: '', mapsUrl: link.url, lat: link.lat, lng: link.lng, image }
+      ? { clusterId: this.clusterId(), label, address: keptAddress, mapsUrl: link.url, lat: link.lat, lng: link.lng, image }
       : {
           clusterId: this.clusterId(),
           label,
@@ -417,7 +424,6 @@ export class PlaceSheetComponent implements OnInit {
         };
 
     this.saving.set(true);
-    const place = this.place();
     const request = place
       ? this.api.updatePlace(this.tripId(), place.id, input)
       : this.api.createPlace(this.tripId(), input);

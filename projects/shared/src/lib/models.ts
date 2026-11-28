@@ -43,6 +43,8 @@ export interface TripDay {
 
 export interface Trip extends TripSummary {
   destinationGeo: { lat: number; lng: number } | null;
+  /** Ảnh đại diện lấy từ Wikimedia Commons, cùng dạng với ảnh quán. */
+  cover: PlaceImage | null;
   tz: string;
   currency: string;
   ownerId: string;
@@ -60,7 +62,7 @@ export interface PlaceImage {
   sourceUrl: string;
 }
 
-/** Một kết quả tìm ảnh từ GET /trips/:id/place-images. */
+/** Một kết quả tìm ảnh từ GET /trips/:id/place-images hoặc GET /destination-images. */
 export interface PlaceImageResult {
   id: number;
   thumbUrl: string;
@@ -227,6 +229,8 @@ export interface TripInput {
   destination: string;
   startDate: string;
   endDate: string;
+  /** null để gỡ ảnh đại diện, bỏ trống thì không đổi. */
+  cover?: PlaceImage | null;
 }
 
 /** Body của POST và PATCH cụm. */
@@ -234,20 +238,6 @@ export interface ClusterInput {
   name: string;
   startTime: string;
   endTime: string;
-}
-
-/**
- * Body của POST và PATCH quán ở màn chuẩn bị. Phải có address hoặc mapsUrl.
- * Trường bỏ trống thì PATCH giữ nguyên giá trị đang có.
- */
-export interface PlaceInput {
-  clusterId?: string;
-  label?: string;
-  address?: string;
-  mapsUrl?: string | null;
-  note?: string;
-  manualHours?: { open: string; close: string } | null;
-  manualPrice?: string | null;
 }
 
 export interface ExpenseItem {
@@ -322,4 +312,30 @@ export interface DayRecap {
     moment: null;
   }[];
   moments: never[];
+}
+
+/** Dự báo một ngày của chuyến. available = false (ngày đã qua hoặc còn quá xa) thì các số là null. */
+export interface WeatherDay {
+  date: string;
+  available: boolean;
+  tempMin: number | null;
+  tempMax: number | null;
+  precipitationProbabilityMax: number | null;
+  precipitationSum: number | null;
+  rain: boolean;
+}
+
+/** Phản hồi của GET /trips/:tripId/weather. */
+export interface TripWeather {
+  days: WeatherDay[];
+  /** Có ít nhất một ngày mưa thì có lời nhắc, ngược lại null. */
+  rainAdvice: string | null;
+}
+
+/** Phản hồi của GET /trips/:tripId/places/:tripPlaceId/route: đường ngắn nhất cho xe máy. */
+export interface PlaceRoute {
+  distanceKm: number;
+  durationMinutes: number;
+  /** Các điểm [lat, lng] dọc đường đi. */
+  path: [number, number][];
 }

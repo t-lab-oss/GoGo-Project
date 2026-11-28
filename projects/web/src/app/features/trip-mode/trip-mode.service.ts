@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, switchMap, timeout, catchError, from, tap, throwError } from 'rxjs';
+import { Observable, map, switchMap, timeout, catchError, from, of, tap, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { isNetworkError } from '../../core/offline/network';
 import { OfflineDb } from '../../core/offline/offline-db';
@@ -20,6 +20,7 @@ import type {
   Trip,
   TripPlace,
   TripSummary,
+  TripWeather,
   UploadTickets,
 } from 'shared';
 import { zonedParts } from './trip-mode.logic';
@@ -214,6 +215,21 @@ export class TripModeService {
       `/api/trips/${tripId}/notifications`,
       { params },
     );
+  }
+
+  weather(tripId: string): Observable<TripWeather> {
+    return this.http.get<TripWeather>(`/api/trips/${tripId}/weather`);
+  }
+
+  /**
+   * Hôm nay có mưa thì tạo thông báo "mưa" (FR-26). Máy chủ bỏ qua khoá trùng nên mỗi người chỉ có
+   * một thông báo mỗi ngày. Trả true khi hôm nay mưa.
+   */
+  notifyRain(tripId: string, date: string, weather: TripWeather): Observable<boolean> {
+    if (!weather.days.some((d) => d.date === date && d.rain)) return of(false);
+    return this.http
+      .post(`/api/trips/${tripId}/notifications`, { type: 'rain', dedupeKey: `rain:${tripId}:${date}` })
+      .pipe(map(() => true));
   }
 
   markNotificationRead(tripId: string, id: string): Observable<Notification> {

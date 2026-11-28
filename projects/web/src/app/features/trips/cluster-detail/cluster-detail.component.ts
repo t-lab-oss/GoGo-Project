@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, isDevMode, signal } from '@angular/core';
+import { Component, Injector, afterNextRender, computed, inject, isDevMode, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { newClientId, type Checkin, type Cluster, type Trip, type TripPlace } from 'shared';
@@ -18,19 +18,19 @@ import {
 } from '../../../core/format';
 import { BackLinkComponent } from '../../../ui/back-link.component';
 import { BottomSheetComponent } from '../../../ui/bottom-sheet.component';
+import { PlaceSheetComponent } from '../../trip-mode/place-sheet/place-sheet.component';
 
-interface PlaceDraft {
-  note: string;
-  open: string;
-  close: string;
-  address: string;
-  mapsUrl: string;
-}
-
-/** Quán trong một cụm: thêm, sửa ghi chú/giờ/địa chỉ, xoá và đánh dấu đã ghé theo ngày. */
+/** Quán trong một cụm: thêm, sửa, xoá và đánh dấu đã ghé theo ngày. */
 @Component({
   selector: 'app-cluster-detail',
-  imports: [NgTemplateOutlet, RouterLink, FormsModule, BackLinkComponent, BottomSheetComponent],
+  imports: [
+    NgTemplateOutlet,
+    RouterLink,
+    FormsModule,
+    BackLinkComponent,
+    BottomSheetComponent,
+    PlaceSheetComponent,
+  ],
   templateUrl: './cluster-detail.component.html',
 })
 export class ClusterDetailComponent {
@@ -63,16 +63,10 @@ export class ClusterDetailComponent {
       : 'Chuyến đã kết thúc nên không check-in thêm được.';
   });
 
-  // Sửa quán
-  readonly editingId = signal('');
-  draft: PlaceDraft = { note: '', open: '', close: '', address: '', mapsUrl: '' };
-  readonly saving = signal(false);
-
-  // Thêm quán
-  readonly showAdd = signal(false);
-  readonly newPlace = { label: '', address: '', mapsUrl: '', note: '' };
-  readonly adding = signal(false);
-  readonly addError = signal('');
+  // Thêm và sửa quán: dùng chung bảng với Trip Mode. Có quán là sửa, null là thêm mới.
+  readonly sheet = signal<{ place: TripPlace | null } | null>(null);
+  private readonly injector = inject(Injector);
+  private sheetOpener: HTMLElement | null = null;
 
   // Sửa cụm
   readonly showCluster = signal(false);
@@ -95,7 +89,7 @@ export class ClusterDetailComponent {
   constructor() {
     this.route.paramMap.subscribe((params) => {
       this.clusterId.set(params.get('clusterId') ?? '');
-      this.editingId.set('');
+      this.sheet.set(null);
       if (this.trip()) this.loadCheckins();
     });
     this.load();
@@ -230,47 +224,34 @@ export class ClusterDetailComponent {
     });
   }
 
-  hoursText(p: TripPlace): string {
-    const parts: string[] = [];
-    if (p.manualHours) parts.push(`${p.manualHours.open}–${p.manualHours.close}`);
-    return parts.join(' · ');
+  openSheet(place: TripPlace | null): void {
+    this.sheetOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.actionError.set('');
+    this.sheet.set({ place });
   }
 
-  // Sửa quán
-  startEdit(p: TripPlace): void {
-    this.editingId.set(p.id);
-    this.draft = {
-      note: p.note,
-      open: p.manualHours?.open ?? '',
-      close: p.manualHours?.close ?? '',
-      address: p.address,
-      mapsUrl: p.mapsUrl ?? '',
-    };
-    this.actionError.set('');
+  closeSheet(): void {
+    this.sheet.set(null);
+    const opener = this.sheetOpener;
+    this.sheetOpener = null;
+    // Trả focus về nút đã mở bảng sau khi bảng gỡ khỏi DOM.
+    afterNextRender(() => opener?.isConnected && opener.focus(), { injector: this.injector });
   }
 
-  saveEdit(p: TripPlace): void {
-    this.saving.set(true);
-    this.actionError.set('');
-    const hasHours = this.draft.open !== '' && this.draft.close !== '';
-    this.api
-      .updatePlace(this.tripId, p.id, {
-        note: this.draft.note,
-        manualHours: hasHours ? { open: this.draft.open, close: this.draft.close } : null,
-        address: this.draft.address.trim(),
-        mapsUrl: this.draft.mapsUrl.trim() || null,
-      })
-      .subscribe({
-        next: (updated) => {
-          this.replacePlace(updated);
-          this.saving.set(false);
-          this.editingId.set('');
-        },
-        error: (err) => {
-          this.saving.set(false);
-          this.actionError.set(toApiError(err).message);
-        },
-      });
+  /** Quán có thể được lưu vào cụm khác cụm đang xem: khi đó chuyển sang cụm ấy để thấy ngay. */
+  onPlaceSaved(saved: TripPlace): void {
+    this.clusters.update((list) =>
+      list.map((c) => {
+        const others = (c.places ?? []).filter((p) => p.id !== saved.id);
+        const places =
+          c.id === saved.clusterId ? [...others, saved].sort((a, b) => a.order - b.order) : others;
+        return { ...c, places, placeCount: places.length };
+      }),
+    );
+    this.closeSheet();
+    if (saved.clusterId !== this.clusterId()) {
+      void this.router.navigate(['/trips', this.tripId, 'clusters', saved.clusterId]);
+    }
   }
 
   removePlace(p: TripPlace): void {
@@ -282,48 +263,13 @@ export class ClusterDetailComponent {
           places: (c.places ?? []).filter((x) => x.id !== p.id),
           placeCount: Math.max(0, c.placeCount - 1),
         }));
-        this.editingId.set('');
+        this.closeSheet();
       },
-      error: (err) => this.actionError.set(toApiError(err).message),
+      error: (err) => {
+        this.closeSheet();
+        this.actionError.set(toApiError(err).message);
+      },
     });
-  }
-
-  // Thêm quán
-  openAdd(): void {
-    this.newPlace.label = '';
-    this.newPlace.address = '';
-    this.newPlace.mapsUrl = '';
-    this.newPlace.note = '';
-    this.addError.set('');
-    this.showAdd.set(true);
-  }
-
-  addPlace(): void {
-    this.adding.set(true);
-    this.addError.set('');
-    this.api
-      .createPlace(this.tripId, {
-        clusterId: this.clusterId(),
-        label: this.newPlace.label,
-        address: this.newPlace.address.trim(),
-        mapsUrl: this.newPlace.mapsUrl.trim() || null,
-        note: this.newPlace.note,
-      })
-      .subscribe({
-        next: (place) => {
-          this.mutateCluster((c) => ({
-            ...c,
-            places: [...(c.places ?? []), place],
-            placeCount: c.placeCount + 1,
-          }));
-          this.adding.set(false);
-          this.showAdd.set(false);
-        },
-        error: (err) => {
-          this.adding.set(false);
-          this.addError.set(toApiError(err).message);
-        },
-      });
   }
 
   // Sửa cụm
@@ -364,13 +310,6 @@ export class ClusterDetailComponent {
       next: () => void this.router.navigate(['/trips', this.tripId]),
       error: (err) => this.clusterError.set(toApiError(err).message),
     });
-  }
-
-  private replacePlace(updated: TripPlace): void {
-    this.mutateCluster((c) => ({
-      ...c,
-      places: (c.places ?? []).map((p) => (p.id === updated.id ? updated : p)),
-    }));
   }
 
   private mutateCluster(fn: (c: Cluster) => Cluster): void {

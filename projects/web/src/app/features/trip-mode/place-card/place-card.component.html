@@ -65,6 +65,13 @@
           <span class="line-clamp-2 text-sm font-semibold leading-snug text-ink">“{{ review() }}”</span>
         }
       </button>
+      <a
+        class="-mt-1 flex min-h-9 flex-none items-center self-start text-sm font-semibold text-brand underline underline-offset-2"
+        [routerLink]="['/trips', place().tripId, 'map']"
+        [queryParams]="{ place: place().id, from: 'mode', cluster: place().clusterId }"
+        (click)="$event.stopPropagation()"
+        >Xem trên bản đồ</a
+      >
       <button
         type="button"
         class="absolute right-2 top-2 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-muted"
