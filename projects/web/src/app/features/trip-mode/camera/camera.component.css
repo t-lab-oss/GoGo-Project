@@ -4,16 +4,6 @@
 .screen {
   background: #061a2a;
 }
-.screen.reviewing {
-  background: #fff7fa;
-}
-.screen.reviewing input:focus-visible,
-.screen.reviewing a:focus-visible,
-.screen.reviewing [tabindex]:focus-visible,
-.screen.reviewing button:focus-visible {
-  outline: 3px solid #17709f;
-  outline-offset: 2px;
-}
 .screen input:not([type='file']):focus-visible,
 .screen a:focus-visible,
 .screen button:focus-visible {

@@ -11,6 +11,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import type { Mood } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { StarsComponent } from '../stars/stars.component';
 import { SwipeDirective } from '../swipe.directive';
@@ -19,13 +20,20 @@ import {
   ratingFromPosition,
   ratingWord,
   type SwipeDirection,
+  MOODS,
 } from '../trip-mode.logic';
 import { TripModeService } from '../trip-mode.service';
 import { CheckinOutcome, CheckinSubmission, currentLocation } from './checkin-submission';
+import { MomentSubmission } from './moment-submission';
 import { CapturedPhoto, encodePhoto, grabSquare, squareFromFile } from './photo';
 
 type CameraState = 'starting' | 'live' | 'unavailable' | 'processing' | 'review' | 'sending' | 'failed';
 type Facing = 'environment' | 'user';
+
+export interface PhotoFlight {
+  blob: Blob;
+  from: DOMRect;
+}
 
 /** Lý do không mở được camera, kèm cách xử lý. */
 export function cameraErrorMessage(err: unknown): string {
@@ -54,14 +62,19 @@ export class CameraComponent {
   private readonly api = inject(TripModeService);
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
+  private readonly reviewPhoto = viewChild<ElementRef<HTMLElement>>('reviewPhoto');
   private readonly libraryInput = viewChild.required<ElementRef<HTMLInputElement>>('libraryInput');
 
   readonly tripId = input.required<string>();
-  readonly placeId = input.required<string>();
-  readonly placeName = input.required<string>();
+  /** checkin: check-in một quán. moment: lưu khoảnh khắc, quán chỉ là gợi ý theo vị trí. */
+  readonly mode = input<'checkin' | 'moment'>('checkin');
+  readonly placeId = input('');
+  readonly placeName = input('');
   readonly clusterName = input('');
 
   readonly done = output<CheckinOutcome>();
+  /** Ảnh vừa đăng và vị trí của nó trên màn hình, để màn cha làm hiệu ứng bay vào album. */
+  readonly flight = output<PhotoFlight>();
   /** attempted = đã từng gửi lên server, nên màn cha cần tải lại dữ liệu. */
   readonly closed = output<{ attempted: boolean }>();
 
@@ -74,6 +87,10 @@ export class CameraComponent {
   protected readonly caption = signal('');
   private starsDrag: { before: number; moved: boolean } | null = null;
   protected readonly formatStars = formatStars;
+  protected readonly moods = MOODS;
+  protected readonly mood = signal<Mood | null>(null);
+  protected readonly momentPlace = signal('');
+  protected readonly isMoment = computed(() => this.mode() === 'moment');
   /** Giờ chụp "HH:mm" hiện ở màn xem lại. */
   protected readonly takenTime = signal('');
   protected readonly ratingWord = computed(() => ratingWord(this.rating()));
@@ -96,7 +113,8 @@ export class CameraComponent {
   private cameraToken = 0;
   private destroyed = false;
   private attempted = false;
-  private submission: CheckinSubmission | null = null;
+  private submission: CheckinSubmission | MomentSubmission | null = null;
+  private photoBlob: Blob | null = null;
 
   constructor() {
     afterNextRender(() => {
@@ -188,7 +206,7 @@ export class CameraComponent {
   }
 
   protected withoutPhoto(): void {
-    if (!this.capturing()) return;
+    if (!this.capturing() || this.isMoment()) return;
     this.stopCamera();
     this.prepare(null, new Date());
     this.showReview();
@@ -221,13 +239,24 @@ export class CameraComponent {
 
   private prepare(photo: CapturedPhoto | null, takenAt: Date): void {
     this.takenTime.set(takenAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
-    this.submission = new CheckinSubmission(this.api, {
-      tripId: this.tripId(),
-      placeId: this.placeId(),
-      takenAt,
-      photo,
-      location: currentLocation(),
-    });
+    this.photoBlob = photo?.photo ?? null;
+    const base = { tripId: this.tripId(), takenAt, location: currentLocation() };
+    if (this.isMoment() && photo) {
+      this.momentPlace.set(this.placeName());
+      const place = this.placeId() ? { id: this.placeId(), label: this.placeName() } : null;
+      this.submission = new MomentSubmission(this.api, { ...base, photo, place });
+      return;
+    }
+    this.submission = new CheckinSubmission(this.api, { ...base, placeId: this.placeId(), photo });
+  }
+
+  /** Chạm lại tâm trạng đang chọn thì bỏ chọn. */
+  protected pickMood(mood: Mood): void {
+    if (!this.ratingLocked()) this.mood.update((cur) => (cur === mood ? null : mood));
+  }
+
+  protected onPlaceInput(event: Event): void {
+    this.momentPlace.set((event.target as HTMLInputElement).value);
   }
 
   /** Gửi check-in. Lỗi thì giữ ảnh, bấm thử lại dùng đúng ID cũ. */
@@ -235,9 +264,15 @@ export class CameraComponent {
     const submission = this.submission;
     if (!submission || this.state() === 'sending') return;
     if (!this.ratingLocked()) {
-      submission.rating = this.rating() || null;
-      submission.review = this.review().trim();
-      submission.caption = this.caption().trim();
+      if (submission instanceof MomentSubmission) {
+        submission.note = this.caption().trim();
+        submission.mood = this.mood();
+        submission.placeLabel = this.momentPlace().trim();
+      } else {
+        submission.rating = this.rating() || null;
+        submission.review = this.review().trim();
+        submission.caption = this.caption().trim();
+      }
     }
     this.ratingLocked.set(true);
     this.state.set('sending');
@@ -245,12 +280,17 @@ export class CameraComponent {
     this.attempted = true;
     try {
       const outcome = await submission.submit();
-      if (!this.destroyed) this.done.emit(outcome);
+      if (this.destroyed) return;
+      const frame = this.reviewPhoto()?.nativeElement;
+      if (this.photoBlob && outcome.moment && frame) {
+        this.flight.emit({ blob: this.photoBlob, from: frame.getBoundingClientRect() });
+      }
+      this.done.emit(outcome);
     } catch (err) {
       if (this.destroyed) return;
       const e = toApiError(err);
       this.errorMessage.set(
-        e.code === 'INTERNAL_ERROR' ? 'Chưa gửi được check-in. Hãy kiểm tra mạng rồi thử lại.' : e.message,
+        e.code === 'INTERNAL_ERROR' ? 'Chưa gửi được. Hãy kiểm tra mạng rồi thử lại.' : e.message,
       );
       this.state.set('failed');
       this.focusId('cam-post');
@@ -263,6 +303,7 @@ export class CameraComponent {
     this.rating.set(0);
     this.review.set('');
     this.caption.set('');
+    this.mood.set(null);
     this.page.set(0);
     this.ratingLocked.set(false);
     this.setPreview(null);

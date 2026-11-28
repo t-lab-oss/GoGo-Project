@@ -23,7 +23,9 @@ export interface CheckinApi {
 export type CheckinOutcome =
   | { kind: 'created'; checkin: Checkin; moment: Moment | null }
   | { kind: 'joined'; checkin: null; moment: Moment }
-  | { kind: 'already'; checkin: null; moment: null };
+  | { kind: 'already'; checkin: null; moment: null }
+  /** Lưu khoảnh khắc (không check-in). */
+  | { kind: 'moment'; checkin: null; moment: Moment };
 
 /**
  * Một lần check-in. ID, ảnh, giờ và vị trí cố định từ lúc chụp, nên gửi lại sau lỗi là idempotent

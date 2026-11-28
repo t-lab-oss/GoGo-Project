@@ -14,9 +14,9 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, of, switchMap, tap } from 'rxjs';
-import type { Cluster, Moment, TripPlace } from 'shared';
+import type { Checkin, Cluster, Moment, TripPlace } from 'shared';
 import { toApiError } from '../../core/api/api-error';
-import { CameraComponent } from './camera/camera.component';
+import { CameraComponent, type PhotoFlight } from './camera/camera.component';
 import type { CheckinOutcome } from './camera/checkin-submission';
 import { PlaceCardComponent } from './place-card/place-card.component';
 import { PlaceSheetComponent } from './place-sheet/place-sheet.component';
@@ -26,6 +26,7 @@ import {
   clusterRange,
   dayNumber,
   findCheckin,
+  nearestPlace,
   formatDayLabel,
   formatVnd,
   haversineKm,
@@ -36,6 +37,10 @@ import {
   type SwipeDirection,
 } from './trip-mode.logic';
 import { SwipeDirective } from './swipe.directive';
+import { ExpenseEntrySheetComponent, type ExpenseTarget } from './expense/expense-entry-sheet.component';
+import { ExpenseListSheetComponent } from './expense/expense-list-sheet.component';
+import { AlbumComponent } from './album/album.component';
+import { AuthService } from '../../core/auth/auth.service';
 import { OutsideTripDaysError, TripModeData, TripModeService } from './trip-mode.service';
 
 /** Khoảng cách giữa hai thẻ (px) và độ rộng thẻ, dùng để đổi vị trí cuộn sang chỉ số thẻ. */
@@ -44,7 +49,7 @@ const CARD_GAP = 12;
 
 @Component({
   selector: 'app-trip-mode',
-  imports: [RouterLink, PlaceCardComponent, PlaceSheetComponent, CameraComponent, SwipeDirective],
+  imports: [RouterLink, PlaceCardComponent, PlaceSheetComponent, CameraComponent, SwipeDirective, ExpenseEntrySheetComponent, ExpenseListSheetComponent, AlbumComponent],
   templateUrl: './trip-mode.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -70,7 +75,17 @@ export class TripModeComponent {
   private sheetOpener: HTMLElement | null = null;
 
   /** Màn camera check-in đang mở cho quán nào. */
-  protected readonly camera = signal<{ place: TripPlace; clusterName: string } | null>(null);
+  protected readonly camera = signal<{
+    mode: 'checkin' | 'moment';
+    placeId: string;
+    placeName: string;
+    clusterName: string;
+    clusterId: string | null;
+  } | null>(null);
+  protected readonly albumOpen = signal(false);
+  private albumOpener: HTMLElement | null = null;
+  private readonly auth = inject(AuthService);
+  protected readonly userId = computed(() => this.auth.user()?.id ?? '');
   private cameraOpener: HTMLElement | null = null;
   /** Thông báo ngắn sau khi check-in. */
   protected readonly notice = signal('');
@@ -80,6 +95,24 @@ export class TripModeComponent {
 
   /** Ảnh của hôm nay, thay ảnh thẻ cho quán đã check-in. */
   private readonly dayMoments = signal<Moment[]>([]);
+
+  /** Ảnh đang bay từ màn xem lại xuống ô album. */
+  protected readonly flying = signal<{ url: string; left: number; top: number; size: number } | null>(null);
+  private readonly albumThumb = viewChild<ElementRef<HTMLElement>>('albumThumb');
+
+  /** Check-in mới nhất còn thiếu tiền. */
+  private readonly pending = signal<Checkin | null>(null);
+  /** Đã bỏ qua trong lần mở app này: lần mở sau mới nhắc lại. */
+  private readonly dismissed = signal<readonly string[]>([]);
+  protected readonly reminder = computed(() => {
+    const c = this.pending();
+    return c && !this.dismissed().includes(c.id) ? c : null;
+  });
+  protected readonly expenseListOpen = signal(false);
+  protected readonly expenseTarget = signal<ExpenseTarget | null>(null);
+  /** Sửa một khoản từ danh sách thì lưu xong quay lại danh sách. */
+  private backToList = false;
+  private expenseOpener: HTMLElement | null = null;
 
   /** Vị trí thiết bị để tính khoảng cách. Từ chối hoặc lỗi thì giữ null và ẩn khoảng cách. */
   private readonly position = signal<{ lat: number; lng: number } | null>(null);
@@ -135,6 +168,7 @@ export class TripModeComponent {
     this.destroyRef.onDestroy(() => {
       cancelAnimationFrame(this.rafId);
       clearTimeout(this.noticeTimer);
+      this.endFlight();
     });
     this.watchPosition();
     this.route.paramMap
@@ -144,12 +178,17 @@ export class TripModeComponent {
           this.camera.set(null);
           this.latestMoment.set(null);
           this.dayMoments.set([]);
+          this.albumOpen.set(false);
+          this.pending.set(null);
+          this.expenseListOpen.set(false);
+          this.expenseTarget.set(null);
           return this.api.load(params.get('id') ?? '').pipe(
             tap((data) => {
               this.data.set(data);
               this.status.set('ready');
               this.loadLatestMoment(data.trip.id);
               this.loadDayMoments(data.trip.id, data.date);
+              this.loadReminder(data.trip.id);
             }),
             catchError((err: unknown) => {
               this.errorMessage.set(
@@ -195,7 +234,43 @@ export class TripModeComponent {
     }
     this.cameraOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const cluster = this.clusters().find((c) => c.id === place.clusterId);
-    this.camera.set({ place, clusterName: cluster?.name ?? '' });
+    this.camera.set({
+      mode: 'checkin',
+      placeId: place.id,
+      placeName: place.label,
+      clusterName: cluster?.name ?? '',
+      clusterId: place.clusterId,
+    });
+  }
+
+  /** Nút "Lưu khoảnh khắc": mở thẳng camera, địa điểm gợi ý là quán đang ở gần (FR-20). */
+  protected openMomentCamera(): void {
+    this.cameraOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const near = nearestPlace(this.clusters().flatMap((c) => c.places ?? []), this.position());
+    this.camera.set({
+      mode: 'moment',
+      placeId: near?.id ?? '',
+      placeName: near?.label ?? '',
+      clusterName: '',
+      clusterId: null,
+    });
+  }
+
+  protected openAlbum(): void {
+    this.albumOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.albumOpen.set(true);
+  }
+
+  protected closeAlbum(): void {
+    this.albumOpen.set(false);
+    const opener = this.albumOpener;
+    this.albumOpener = null;
+    afterNextRender(() => opener?.isConnected && opener.focus(), { injector: this.injector });
+  }
+
+  /** Sửa hoặc xoá ảnh trong album thì thẻ và ô album cập nhật theo. */
+  protected onAlbumChanged(): void {
+    this.refresh();
   }
 
   protected onCameraClosed(event: { attempted: boolean }): void {
@@ -204,9 +279,63 @@ export class TripModeComponent {
     if (event.attempted) this.refresh();
   }
 
+  protected onPhotoFlight({ blob, from }: PhotoFlight): void {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    this.endFlight();
+    this.flying.set({ url: URL.createObjectURL(blob), left: from.left, top: from.top, size: from.width });
+  }
+
+  /** Ảnh nhảy lên một nhịp rồi thu nhỏ rơi vào ô album, ô album nảy khi đón ảnh. */
+  protected runFlight(image: HTMLImageElement): void {
+    const flight = this.flying();
+    const target = this.albumThumb()?.nativeElement;
+    if (!flight || !target?.animate) {
+      this.endFlight();
+      return;
+    }
+    const box = target.getBoundingClientRect();
+    const scale = box.width / flight.size;
+    const dx = box.left - flight.left;
+    const dy = box.top - flight.top;
+    const animation = image.animate(
+      [
+        { transform: 'translate(0, 0) scale(1) rotate(0deg)', borderRadius: '40px' },
+        {
+          transform: `translate(${dx * 0.25}px, ${dy * 0.05 - 40}px) scale(${0.65}) rotate(-5deg)`,
+          borderRadius: '44px',
+          offset: 0.35,
+        },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale}) rotate(0deg)`, borderRadius: `${14 / scale}px` },
+      ],
+      { duration: 760, easing: 'cubic-bezier(0.5, 0, 0.35, 1)', fill: 'forwards' },
+    );
+    animation.onfinish = () => {
+      target.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(0.92)' }, { transform: 'scale(1)' }],
+        { duration: 420, easing: 'ease-out' },
+      );
+      this.endFlight();
+    };
+    animation.oncancel = () => this.endFlight();
+  }
+
+  private endFlight(): void {
+    const flight = this.flying();
+    if (!flight) return;
+    URL.revokeObjectURL(flight.url);
+    this.flying.set(null);
+  }
+
   protected onCheckinDone(outcome: CheckinOutcome): void {
     const open = this.camera();
     if (!open) return;
+    if (outcome.kind === 'moment') {
+      this.latestMoment.set(outcome.moment);
+      this.dismissCamera();
+      this.showNotice('Đã lưu vào album.');
+      this.refresh();
+      return;
+    }
     const checkin = outcome.checkin;
     if (checkin) {
       this.data.update((d) =>
@@ -214,12 +343,12 @@ export class TripModeComponent {
       );
     }
     // Ở lại cụm vừa check-in để thấy "✓ Đã đi".
-    this.selectedClusterId.set(open.place.clusterId);
+    this.selectedClusterId.set(open.clusterId);
     this.flippedPlaceId.set(null);
     this.dismissCamera();
     this.showNotice(
       outcome.kind === 'created'
-        ? `Đã check-in ${open.place.label}.`
+        ? `Đã check-in ${open.placeName}.`
         : outcome.kind === 'joined'
           ? 'Quán đã được check-in hôm nay. Ảnh của bạn đã vào album.'
           : 'Quán đã được check-in hôm nay.',
@@ -261,6 +390,98 @@ export class TripModeComponent {
         error: () => undefined,
       });
     this.loadLatestMoment(id);
+    this.loadReminder(id);
+  }
+
+  private loadReminder(tripId: string): void {
+    this.api
+      .pendingExpense(tripId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (c) => {
+          if (this.trip()?.id === tripId) this.pending.set(c);
+        },
+        // Khung nhắc chỉ là gợi ý: lỗi thì ẩn, lần tải sau thử lại.
+        error: () => undefined,
+      });
+  }
+
+  protected skipReminder(checkin: Checkin): void {
+    this.dismissed.update((list) => [...list, checkin.id]);
+    this.api
+      .skipExpenseReminder(checkin.tripId, checkin.id, checkin.expenseReminder.skipCount + 1)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          if (updated.expenseReminder.movedToBell) {
+            this.showNotice('Không nhắc ở trang chủ nữa. Bạn nhập bù ở "Tổng chi tiêu".');
+            this.loadReminder(updated.tripId);
+          }
+        },
+        error: () => {
+          this.dismissed.update((list) => list.filter((id) => id !== checkin.id));
+          this.showNotice('Chưa bỏ qua được. Hãy kiểm tra mạng rồi thử lại.');
+        },
+      });
+  }
+
+  protected onReminderSwipe(direction: SwipeDirection, checkin: Checkin): void {
+    if (direction === 'left' || direction === 'right') this.skipReminder(checkin);
+  }
+
+  protected enterExpense(checkin: Checkin): void {
+    const cluster = this.clusters().find((c) => c.id === checkin.clusterId);
+    this.rememberExpenseOpener();
+    this.backToList = false;
+    this.expenseTarget.set({
+      checkinId: checkin.id,
+      placeLabel: checkin.placeLabel,
+      subtitle: cluster?.name ?? '',
+      amount: null,
+      note: '',
+    });
+  }
+
+  protected openExpenseList(): void {
+    this.rememberExpenseOpener();
+    this.expenseListOpen.set(true);
+  }
+
+  protected editExpense(target: ExpenseTarget): void {
+    this.backToList = true;
+    this.expenseListOpen.set(false);
+    this.expenseTarget.set(target);
+  }
+
+  protected onExpenseSaved(): void {
+    this.closeExpenseEntry();
+    this.showNotice('Đã lưu chi tiêu.');
+    this.refresh();
+  }
+
+  protected closeExpenseEntry(): void {
+    this.expenseTarget.set(null);
+    if (this.backToList) {
+      this.backToList = false;
+      this.expenseListOpen.set(true);
+    } else {
+      this.restoreExpenseFocus();
+    }
+  }
+
+  protected closeExpenseList(): void {
+    this.expenseListOpen.set(false);
+    this.restoreExpenseFocus();
+  }
+
+  private rememberExpenseOpener(): void {
+    this.expenseOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+
+  private restoreExpenseFocus(): void {
+    const opener = this.expenseOpener;
+    this.expenseOpener = null;
+    afterNextRender(() => opener?.isConnected && opener.focus(), { injector: this.injector });
   }
 
   private loadLatestMoment(tripId: string): void {

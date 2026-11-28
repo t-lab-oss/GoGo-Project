@@ -1,6 +1,9 @@
 import type { Checkin, Cluster, PlaceImage, PlaceImageResult } from 'shared';
 import {
   checkinMoment,
+  groupByDay,
+  nearestPlace,
+  pressAmountKey,
   swipeDirection,
   ratingFromPosition,
   starFills,
@@ -293,6 +296,37 @@ describe('swipeDirection', () => {
     expect(swipeDirection(20, 3, 48, 64)).toBeNull();
     expect(swipeDirection(2, 50, 48, 64)).toBeNull();
     expect(swipeDirection(80, 75, 48, 64)).toBeNull();
+  });
+});
+
+describe('pressAmountKey', () => {
+  it('nối số, bỏ số 0 đầu và xoá được', () => {
+    expect(pressAmountKey('', '8')).toBe('8');
+    expect(pressAmountKey('85', '000')).toBe('85000');
+    expect(pressAmountKey('0', '5')).toBe('5');
+    expect(pressAmountKey('', '000')).toBe('0');
+    expect(pressAmountKey('', '0')).toBe('0');
+    expect(pressAmountKey('85', '⌫')).toBe('8');
+  });
+
+  it('không vượt quá 1 tỷ', () => {
+    expect(pressAmountKey('1000000', '000')).toBe('1000000000');
+    expect(pressAmountKey('1000000000', '1')).toBe('1000000000');
+  });
+});
+
+describe('album và địa điểm khoảnh khắc', () => {
+  it('gom ảnh theo ngày, giữ thứ tự', () => {
+    const items = [{ dayDate: '2026-11-26', id: 1 }, { dayDate: '2026-11-26', id: 2 }, { dayDate: '2026-11-25', id: 3 }];
+    expect(groupByDay(items).map((g) => [g.date, g.items.length])).toEqual([['2026-11-26', 2], ['2026-11-25', 1]]);
+  });
+
+  it('chọn quán gần nhất trong bán kính, xa quá hoặc không có vị trí thì null', () => {
+    const place = (id: string, lat: number | null) => ({ id, lat, lng: lat === null ? null : 103.96 }) as never;
+    const list = [place('xa', 10.3), place('gan', 10.2001), place('khongToaDo', null)];
+    expect(nearestPlace(list, { lat: 10.2, lng: 103.96 })?.id).toBe('gan');
+    expect(nearestPlace(list, { lat: 11, lng: 103.96 })).toBeNull();
+    expect(nearestPlace(list, null)).toBeNull();
   });
 });
 

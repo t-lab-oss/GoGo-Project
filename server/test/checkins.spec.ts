@@ -33,6 +33,9 @@ class FakeStorage implements PhotoStorage {
   async createDownloadUrls(paths: string[]) {
     return new Map(paths.filter((p) => this.files.has(p)).map((p) => [p, `https://storage.test/view/${p}`]));
   }
+  async remove(paths: string[]) {
+    for (const p of paths) this.files.delete(p);
+  }
   put(trip: string, momentId: string, photo: Partial<StoredFile> = {}, thumb: Partial<StoredFile> = {}) {
     const base = `trips/${trip}/moments/${momentId}`;
     this.files.set(`${base}.jpg`, { size: 400_000, contentType: 'image/jpeg', ...photo });
@@ -399,3 +402,43 @@ describe('PUT checkins, số sao', () => {
     }
   });
 });
+
+describe('xem, sửa, xoá khoảnh khắc', () => {
+  const one = (id: string) => `/api/trips/${tripId}/moments/${id}`;
+  const make = async (id: string, token = hany) => {
+    storage.put(tripId, id);
+    await putMoment(id, { source: 'camera', photo, takenAt: TAKEN, mood: 'happy' }, token).expect(201);
+  };
+
+  it('thành viên khác sửa được ghi chú, địa điểm, bỏ tâm trạng', async () => {
+    await make(M1);
+    const res = await request(app).patch(one(M1)).set(auth(friend)).send({ note: ' Vui ', placeLabel: 'Bãi Sao', mood: null });
+    expect(res.status).toBe(200);
+    expect(res.body.moment).toMatchObject({ note: 'Vui', placeLabel: 'Bãi Sao', mood: null });
+  });
+
+  it('mỗi ngày chỉ một ảnh nổi bật; đổi giờ ra ngoài chuyến thì 422', async () => {
+    await make(M1);
+    await make(M2);
+    await request(app).patch(one(M1)).set(auth(hany)).send({ isHighlight: true }).expect(200);
+    await request(app).patch(one(M2)).set(auth(hany)).send({ isHighlight: true }).expect(200);
+    expect(await MomentModel.countDocuments({ isHighlight: true })).toBe(1);
+    const out = await request(app).patch(one(M1)).set(auth(hany)).send({ takenAt: '2026-12-30T05:00:00.000Z' });
+    expect(out.body.error.code).toBe('DATE_OUT_OF_RANGE');
+  });
+
+  it('người đăng hoặc chủ chuyến mới xoá được; xoá cả file và gỡ khỏi check-in', async () => {
+    await make(M1);
+    const denied = await request(app).delete(one(M1)).set(auth(friend));
+    expect(denied.status).toBe(403);
+    storage.put(tripId, M2);
+    await putCheckin(C1, base({ momentId: M2, photo }), friend).expect(201);
+    // Chủ chuyến xoá ảnh của người khác.
+    await request(app).delete(one(M2)).set(auth(hany)).expect(204);
+    expect((await CheckinModel.findById(C1))!.momentId).toBeNull();
+    expect([...storage.files.keys()].some((k) => k.includes(M2))).toBe(false);
+    const gone = await request(app).get(one(M2)).set(auth(hany));
+    expect(gone.body.error.code).toBe('MOMENT_NOT_FOUND');
+  });
+});
+

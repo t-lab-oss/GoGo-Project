@@ -15,6 +15,8 @@ export interface PhotoStorage {
   stat(path: string): Promise<StoredFile | null>;
   /** Signed URL để xem. Đường dẫn không có file thì không xuất hiện trong kết quả. */
   createDownloadUrls(paths: string[], expiresInSeconds: number): Promise<Map<string, string>>;
+  /** Xoá file. Đường dẫn không tồn tại thì bỏ qua. */
+  remove(paths: string[]): Promise<void>;
 }
 
 const upstream = (action: string, error: unknown) => {
@@ -43,6 +45,10 @@ export function createSupabaseStorage(url: string, key: string, bucketName: stri
         throw upstream('info', error);
       }
       return { size: data.size ?? 0, contentType: data.contentType ?? '' };
+    },
+    async remove(paths) {
+      const { error } = await bucket.remove(paths);
+      if (error) throw upstream('remove', error);
     },
     async createDownloadUrls(paths, expiresInSeconds) {
       const out = new Map<string, string>();

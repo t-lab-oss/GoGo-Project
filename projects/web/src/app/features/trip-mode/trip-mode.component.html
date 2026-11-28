@@ -36,9 +36,14 @@
         <section class="mt-1" aria-label="Chuyến đi">
           <div class="text-[13px] font-medium text-muted">{{ dayText() }}</div>
           <h1 class="m-0 mt-0.5 text-[40px] font-extrabold leading-[1.05] tracking-[-1.4px]">{{ t.name }}</h1>
-          <p class="m-0 mt-1.5 flex items-baseline gap-1.5 text-sm text-muted">
+          <button
+            type="button"
+            class="flex min-h-11 cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-sm text-muted"
+            (click)="openExpenseList()"
+          >
             Tổng chi tiêu <b class="text-base text-ink">{{ totalSpent() }}</b>
-          </p>
+            <span aria-hidden="true">›</span>
+          </button>
         </section>
 
         <nav class="flex border-b border-line" aria-label="Các cụm trong ngày, chạm để chuyển">
@@ -66,6 +71,25 @@
             </button>
           }
         </nav>
+
+        @if (reminder(); as r) {
+          <!-- Nhắc nhập tiền (FR-16). Lướt ngang để bỏ qua. -->
+          <div
+            class="reminder card touch-pan-y select-none border-[1.5px] border-accent p-3.5"
+            data-noswipe
+            appSwipe
+            (appSwipe)="onReminderSwipe($event, r)"
+          >
+            <div class="flex items-baseline justify-between gap-3">
+              <span class="min-w-0 font-semibold">{{ r.placeLabel }} hết bao nhiêu?</span>
+              <span class="flex-none text-xs text-muted">Nhắc lần {{ r.expenseReminder.skipCount + 1 }}/2</span>
+            </div>
+            <div class="mt-2.5 flex gap-2">
+              <button type="button" class="btn btn-primary min-h-11 flex-1 cursor-pointer text-sm" (click)="enterExpense(r)">Nhập tiền</button>
+              <button type="button" class="btn btn-outline min-h-11 flex-1 cursor-pointer text-sm" (click)="skipReminder(r)">Bỏ qua</button>
+            </div>
+          </div>
+        }
 
         @if (selected(); as c) {
           <div class="flex items-center justify-between">
@@ -154,19 +178,16 @@
           <button
             type="button"
             class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-start border-0 bg-transparent p-0 text-muted"
-            aria-label="Xem ảnh đã chụp"
+            aria-label="Thêm quán vào cụm đang xem"
+            (click)="openSheet(null)"
           >
-            <span class="relative block h-12 w-12" aria-hidden="true">
-              <span class="absolute inset-0 -rotate-[9deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #9fd3ee, #0e4f75)"></span>
-              <span class="absolute inset-0 rotate-[7deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffb3cf, #17709f)"></span>
-              <span class="absolute inset-0 rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffd0e1, #3c8fbf)"></span>
-              @if (latestMoment(); as m) {
-                @if (m.thumbUrl) {
-                  <img class="absolute inset-0 h-full w-full rounded-[14px] border-2 border-white object-cover" [src]="m.thumbUrl" alt="" (error)="onAlbumImageError(m)" />
-                }
-              }
+            <span class="flex h-12 w-12 items-center justify-center rounded-[14px] bg-brand-soft text-brand" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
+                <path d="M12 7.5v5M9.5 10h5" />
+              </svg>
             </span>
-            <span class="text-xs font-semibold">Album</span>
+            <span class="text-xs font-semibold">Thêm quán</span>
           </button>
 
           <div class="flex flex-col items-center gap-1.5">
@@ -175,6 +196,7 @@
               class="relative -mt-12 flex h-[92px] w-[92px] cursor-pointer items-center justify-center rounded-full border-0 p-1 shadow-[0_12px_24px_rgba(23,112,159,0.35)] transition-transform active:scale-95 motion-reduce:transition-none"
               style="background: conic-gradient(from 210deg, #ff7bac, #17709f, #ff7bac)"
               aria-label="Lưu khoảnh khắc"
+              (click)="openMomentCamera()"
             >
               <span class="absolute inset-0 animate-ping rounded-full bg-accent/25 motion-reduce:hidden" aria-hidden="true"></span>
               <span class="relative flex h-full w-full items-center justify-center rounded-full bg-white">
@@ -192,18 +214,37 @@
           <button
             type="button"
             class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-end border-0 bg-transparent p-0 text-muted"
-            aria-label="Thêm quán vào cụm đang xem"
-            (click)="openSheet(null)"
+            aria-label="Mở album chung"
+            (click)="openAlbum()"
           >
-            <span class="flex h-12 w-12 items-center justify-center rounded-[14px] bg-brand-soft text-brand" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
-                <path d="M12 7.5v5M9.5 10h5" />
-              </svg>
+            <span #albumThumb class="relative block h-12 w-12" aria-hidden="true">
+              <span class="absolute inset-0 -rotate-[9deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #9fd3ee, #0e4f75)"></span>
+              <span class="absolute inset-0 rotate-[7deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffb3cf, #17709f)"></span>
+              <span class="absolute inset-0 rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffd0e1, #3c8fbf)"></span>
+              @if (latestMoment(); as m) {
+                @if (m.thumbUrl) {
+                  <img class="absolute inset-0 h-full w-full rounded-[14px] border-2 border-white object-cover" [src]="m.thumbUrl" alt="" (error)="onAlbumImageError(m)" />
+                }
+              }
             </span>
-            <span class="text-xs font-semibold">Thêm quán</span>
+            <span class="text-xs font-semibold">Album</span>
           </button>
         </div>
+
+        @if (flying(); as f) {
+          <img
+            #flyImage
+            class="pointer-events-none fixed z-[60] origin-top-left object-cover shadow-[0_12px_30px_rgba(11,47,74,0.35)]"
+            [src]="f.url"
+            alt=""
+            [style.left.px]="f.left"
+            [style.top.px]="f.top"
+            [style.width.px]="f.size"
+            [style.height.px]="f.size"
+            (load)="runFlight(flyImage)"
+            (error)="runFlight(flyImage)"
+          />
+        }
 
         <!-- Vùng live luôn có trong DOM để trình đọc màn hình đọc được thông báo. -->
         <div class="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center px-5" role="status">
@@ -215,11 +256,38 @@
         @if (camera(); as cam) {
           <app-camera
             [tripId]="t.id"
-            [placeId]="cam.place.id"
-            [placeName]="cam.place.label"
+            [mode]="cam.mode"
+            [placeId]="cam.placeId"
+            [placeName]="cam.placeName"
             [clusterName]="cam.clusterName"
+            (flight)="onPhotoFlight($event)"
             (done)="onCheckinDone($event)"
             (closed)="onCameraClosed($event)"
+          />
+        }
+
+        @if (albumOpen()) {
+          <app-album
+            [tripId]="t.id"
+            [tripDays]="t.days"
+            [tz]="t.tz"
+            [userId]="userId()"
+            [isOwner]="t.ownerId === userId()"
+            (changed)="onAlbumChanged()"
+            (closed)="closeAlbum()"
+          />
+        }
+
+        @if (expenseListOpen()) {
+          <app-expense-list-sheet [tripId]="t.id" (edit)="editExpense($event)" (closed)="closeExpenseList()" />
+        }
+
+        @if (expenseTarget(); as target) {
+          <app-expense-entry-sheet
+            [tripId]="t.id"
+            [target]="target"
+            (saved)="onExpenseSaved()"
+            (closed)="closeExpenseEntry()"
           />
         }
 

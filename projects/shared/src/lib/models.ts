@@ -120,9 +120,42 @@ export interface Expense {
   tripPlaceId: string;
   dayDate: string;
   amount: number;
-  note: string | null;
+  note: string;
   enteredBy: string;
   updatedAt: string;
+}
+
+export interface ExpenseItem {
+  checkinId: string;
+  tripPlaceId: string;
+  placeLabel: string;
+  clusterName: string;
+  dayIndex: number;
+  amount: number | null;
+  note: string | null;
+}
+
+export interface ExpensesByDay {
+  total: number;
+  missingCount: number;
+  days: { date: string; index: number; total: number; items: ExpenseItem[] }[];
+}
+
+export interface ExpensesByPlace {
+  total: number;
+  missingCount: number;
+  places: {
+    tripPlaceId: string;
+    placeLabel: string;
+    total: number;
+    visits: {
+      date: string;
+      dayIndex: number;
+      clusterName: string;
+      checkinId: string;
+      amount: number | null;
+    }[];
+  }[];
 }
 
 export interface Cluster {

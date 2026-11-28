@@ -2,6 +2,9 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map, switchMap, timeout } from 'rxjs';
 import type {
+  Checkin,
+  Expense,
+  ExpensesByDay,
   CheckinInput,
   CheckinResult,
   Cluster,
@@ -150,6 +153,54 @@ export class TripModeService {
     return this.http
       .get<{ items: Moment[] }>(`/api/trips/${tripId}/moments`, { params: { date, limit: 100 } })
       .pipe(map((res) => res.items));
+  }
+
+  /** Album chung, mới nhất trước, phân trang bằng con trỏ. */
+  album(tripId: string, cursor: string | null): Observable<{ items: Moment[]; nextCursor: string | null }> {
+    return this.http.get<{ items: Moment[]; nextCursor: string | null }>(`/api/trips/${tripId}/moments`, {
+      params: { limit: 30, ...(cursor ? { cursor } : {}) },
+    });
+  }
+
+  updateMoment(tripId: string, momentId: string, changes: { note: string; placeLabel: string }): Observable<Moment> {
+    return this.http
+      .patch<{ moment: Moment }>(`/api/trips/${tripId}/moments/${momentId}`, changes)
+      .pipe(map((res) => res.moment));
+  }
+
+  deleteMoment(tripId: string, momentId: string): Observable<unknown> {
+    return this.http.delete(`/api/trips/${tripId}/moments/${momentId}`);
+  }
+
+  /** Check-in mới nhất chưa nhập tiền và chưa bị chuyển vào chuông (FR-16). */
+  pendingExpense(tripId: string): Observable<Checkin | null> {
+    return this.http
+      .get<{ items: Checkin[] }>(`/api/trips/${tripId}/checkins`, {
+        params: { expenseStatus: 'missing', reminder: 'active', sort: '-takenAt', limit: 1 },
+      })
+      .pipe(map((res) => res.items[0] ?? null));
+  }
+
+  /** Gửi số lần bỏ qua tuyệt đối nên gửi lại không đếm dư. */
+  skipExpenseReminder(tripId: string, checkinId: string, skipCount: number): Observable<Checkin> {
+    return this.http
+      .patch<{ checkin: Checkin }>(`/api/trips/${tripId}/checkins/${checkinId}`, {
+        expenseReminder: { skipCount },
+      })
+      .pipe(map((res) => res.checkin));
+  }
+
+  putExpense(tripId: string, checkinId: string, amount: number, note: string): Observable<Expense> {
+    return this.http
+      .put<{ expense: Expense }>(`/api/trips/${tripId}/checkins/${checkinId}/expense`, { amount, note })
+      .pipe(
+        timeout(API_TIMEOUT_MS),
+        map((res) => res.expense),
+      );
+  }
+
+  expensesByDay(tripId: string): Observable<ExpensesByDay> {
+    return this.http.get<ExpensesByDay>(`/api/trips/${tripId}/expenses`, { params: { groupBy: 'day' } });
   }
 
   createPlace(tripId: string, input: PlaceInput): Observable<TripPlace> {

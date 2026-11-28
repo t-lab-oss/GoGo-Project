@@ -1,4 +1,4 @@
-import type { Moment, Checkin, Cluster, PlaceImage, PlaceImageResult, Trip, TripPlace } from 'shared';
+import type { Mood, Moment, Checkin, Cluster, PlaceImage, PlaceImageResult, Trip, TripPlace } from 'shared';
 
 const WEEKDAYS = [
   'Chủ Nhật',
@@ -215,5 +215,57 @@ export function swipeDirection(dx: number, dy: number, minX: number, minY: numbe
   if (x >= minX && x > y * 1.3) return dx < 0 ? 'left' : 'right';
   if (y >= minY && y > x * 1.3) return dy < 0 ? 'up' : 'down';
   return null;
+}
+
+const MAX_AMOUNT = 1_000_000_000;
+
+/** Bấm một phím số: nối chữ số, bỏ số 0 thừa ở đầu, không vượt quá giới hạn số tiền. */
+export function pressAmountKey(digits: string, key: string): string {
+  if (key === '⌫') return digits.slice(0, -1);
+  const joined = digits + key;
+  const next = joined.replace(/^0+(?=\d)/, '').replace(/^0+$/, '0');
+  return Number(next) > MAX_AMOUNT ? digits : next;
+}
+
+export const MOODS: readonly { value: Mood; label: string }[] = [
+  { value: 'happy', label: 'Vui' },
+  { value: 'excited', label: 'Wow' },
+  { value: 'relaxed', label: 'Chill' },
+  { value: 'tired', label: 'Mệt' },
+  { value: 'sad', label: 'Buồn' },
+];
+
+/** Bán kính coi là "đang ở quán" khi tự gắn địa điểm cho khoảnh khắc. */
+export const NEARBY_KM = 0.2;
+
+/** Quán gần vị trí nhất trong bán kính, hoặc null. */
+export function nearestPlace(
+  places: readonly TripPlace[],
+  position: { lat: number; lng: number } | null,
+  maxKm = NEARBY_KM,
+): TripPlace | null {
+  if (!position) return null;
+  let best: TripPlace | null = null;
+  let bestKm = maxKm;
+  for (const p of places) {
+    if (p.lat === null || p.lng === null) continue;
+    const km = haversineKm(position, { lat: p.lat, lng: p.lng });
+    if (km <= bestKm) {
+      best = p;
+      bestKm = km;
+    }
+  }
+  return best;
+}
+
+/** Gom ảnh (đã sắp mới nhất trước) theo ngày, giữ nguyên thứ tự. */
+export function groupByDay<T extends { dayDate: string }>(items: readonly T[]): { date: string; items: T[] }[] {
+  const groups: { date: string; items: T[] }[] = [];
+  for (const item of items) {
+    const group = groups.find((g) => g.date === item.dayDate);
+    if (group) group.items.push(item);
+    else groups.push({ date: item.dayDate, items: [item] });
+  }
+  return groups;
 }
 
