@@ -12,6 +12,7 @@ import {
   isLicenseUrl,
 } from '../../lib/place-images';
 import { timeIn } from '../../lib/trip-dates';
+import { CheckinModel } from '../checkins/checkin.model';
 import { ClusterModel, type ClusterDoc } from '../clusters/cluster.model';
 import { toTripPlace } from './place.dto';
 import { TripPlaceModel, type TripPlaceDoc } from './trip-place.model';
@@ -316,4 +317,15 @@ placesRouter.patch('/:tripPlaceId', async (req, res) => {
       }).lean<TripPlaceDoc>()
     : current;
   res.json({ place: toTripPlace(saved ?? current) });
+});
+
+// Quán đã có check-in thì lưu trữ thay vì xoá, để chi tiêu và recap vẫn dùng được
+placesRouter.delete('/:tripPlaceId', async (req, res) => {
+  const place = await loadPlace(req);
+  if (await CheckinModel.exists({ tripPlaceId: place._id })) {
+    await TripPlaceModel.updateOne({ _id: place._id }, { $set: { isArchived: true, archivedAt: now() } });
+  } else {
+    await TripPlaceModel.deleteOne({ _id: place._id });
+  }
+  res.status(204).end();
 });

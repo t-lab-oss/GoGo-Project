@@ -1,9 +1,10 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
-import type {
-  Cluster,
-  ClusterState,
-  ClusterType,
+import {
+  isObjectId,
+  type Cluster,
+  type ClusterState,
+  type ClusterType,
 } from '../../../../projects/shared/src/public-api';
 import { AppError } from '../../lib/app-error';
 import { now } from '../../lib/clock';
@@ -103,4 +104,99 @@ clustersRouter.get('/', async (req, res) => {
   });
 
   res.json({ items });
+});
+
+// ---------- Thêm, xem, sửa, xoá cụm ----------
+
+const time = z
+  .string({ message: 'Nhập giờ.' })
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Giờ chưa đúng định dạng HH:mm.');
+const clusterName = z
+  .string({ message: 'Nhập tên cụm.' })
+  .trim()
+  .min(1, 'Nhập tên cụm.')
+  .max(40, 'Tên cụm tối đa 40 ký tự.');
+
+const END_AFTER_START = 'Giờ kết thúc phải sau giờ bắt đầu.';
+
+const createSchema = z
+  .object({ name: clusterName, startTime: time, endTime: time })
+  .refine((c) => c.startTime < c.endTime, { path: ['endTime'], message: END_AFTER_START });
+
+const patchSchema = z.object({
+  name: clusterName.optional(),
+  startTime: time.optional(),
+  endTime: time.optional(),
+  order: z.number().int().min(0).optional(),
+});
+
+async function loadCluster(req: Request): Promise<ClusterDoc> {
+  const id = String((req.params as Record<string, string>)['clusterId']);
+  const cluster = isObjectId(id)
+    ? await ClusterModel.findOne({ _id: id, tripId: req.trip!._id }).lean<ClusterDoc>()
+    : null;
+  if (!cluster) throw new AppError(404, 'CLUSTER_NOT_FOUND', 'Không tìm thấy cụm này.');
+  return cluster;
+}
+
+const countPlaces = (c: ClusterDoc) =>
+  TripPlaceModel.countDocuments({ tripId: c.tripId, clusterId: c._id, isArchived: false });
+
+function toClusterDto(c: ClusterDoc, placeCount: number): Cluster {
+  return {
+    id: c._id.toString(),
+    tripId: c.tripId.toString(),
+    name: c.name,
+    type: c.type as ClusterType,
+    startTime: c.startTime,
+    endTime: c.endTime,
+    order: c.order,
+    placeCount,
+  };
+}
+
+clustersRouter.post('/', async (req, res) => {
+  const trip = req.trip!;
+  const body = createSchema.parse(req.body);
+  const last = await ClusterModel.findOne({ tripId: trip._id }).sort({ order: -1 }).lean<ClusterDoc>();
+  const created = await ClusterModel.create({
+    ...body,
+    type: 'custom',
+    tripId: trip._id,
+    order: (last?.order ?? 0) + 1,
+  });
+  res.status(201).json({ cluster: toClusterDto(created.toObject() as unknown as ClusterDoc, 0) });
+});
+
+clustersRouter.get('/:clusterId', async (req, res) => {
+  const cluster = await loadCluster(req);
+  res.json({ cluster: toClusterDto(cluster, await countPlaces(cluster)) });
+});
+
+clustersRouter.patch('/:clusterId', async (req, res) => {
+  const cluster = await loadCluster(req);
+  const body = patchSchema.parse(req.body);
+  if ((body.startTime ?? cluster.startTime) >= (body.endTime ?? cluster.endTime)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Dữ liệu chưa hợp lệ, hãy kiểm tra lại các ô được nêu.', [
+      { field: 'endTime', message: END_AFTER_START },
+    ]);
+  }
+  const updated = await ClusterModel.findOneAndUpdate(
+    { _id: cluster._id },
+    { $set: body },
+    { returnDocument: 'after', runValidators: true },
+  ).lean<ClusterDoc>();
+  res.json({ cluster: toClusterDto(updated ?? cluster, await countPlaces(cluster)) });
+});
+
+clustersRouter.delete('/:clusterId', async (req, res) => {
+  const cluster = await loadCluster(req);
+  if (cluster.type !== 'custom') {
+    throw new AppError(409, 'CLUSTER_PROTECTED', 'Cụm mặc định không xoá được, bạn chỉ sửa được tên và giờ.');
+  }
+  if ((await countPlaces(cluster)) > 0) {
+    throw new AppError(409, 'CLUSTER_NOT_EMPTY', 'Cụm còn quán, hãy chuyển hoặc xoá các quán trước.');
+  }
+  await ClusterModel.deleteOne({ _id: cluster._id });
+  res.status(204).end();
 });

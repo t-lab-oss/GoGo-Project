@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { ExpenseItem, ExpensesByDay, ExpensesByPlace } from '../../../../projects/shared/src/public-api';
-import { ClusterModel, type ClusterDoc } from '../clusters/cluster.model';
-import { ExpenseModel, type ExpenseDoc } from '../expenses/expense.model';
 import { buildDays } from '../../lib/trip-dates';
-import { CheckinModel, type CheckinDoc } from './checkin.model';
+import { CheckinModel, type CheckinDoc } from '../checkins/checkin.model';
+import { ClusterModel, type ClusterDoc } from '../clusters/cluster.model';
+import { ExpenseModel, type ExpenseDoc } from './expense.model';
 
 export const expensesRouter = Router({ mergeParams: true });
 

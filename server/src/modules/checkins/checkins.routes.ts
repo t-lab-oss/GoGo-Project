@@ -3,17 +3,17 @@ import { z } from 'zod';
 import { isObjectId } from '../../../../projects/shared/src/public-api';
 import { AppError } from '../../lib/app-error';
 import { now } from '../../lib/clock';
-import { dateIn } from '../../lib/trip-dates';
+import { dateIn, isValidDate } from '../../lib/trip-dates';
 import { toMoment } from '../moments/moment.dto';
 import { MomentModel, type MomentDoc } from '../moments/moment.model';
 import { objectId, photoSchema, takenAtSchema, verifyUploaded } from '../moments/photo';
+import { toExpense } from '../expenses/expense.dto';
 import { ExpenseModel, type ExpenseDoc } from '../expenses/expense.model';
 import { NotificationModel } from '../notifications/notification.model';
 import { TripPlaceModel } from '../places/trip-place.model';
 import type { TripDoc } from '../trips/trip.model';
 import { toCheckin } from './checkin.dto';
 import { CheckinModel, type CheckinDoc } from './checkin.model';
-import { toExpenseDto } from './expense.dto';
 
 export const checkinsRouter = Router({ mergeParams: true });
 
@@ -181,7 +181,7 @@ async function loadCheckin(trip: Pick<TripDoc, '_id'>, checkinId: string): Promi
 }
 
 const listQuery = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày chưa đúng định dạng.').optional(),
+  date: z.string().refine(isValidDate, 'Ngày chưa đúng định dạng.').optional(),
   expenseStatus: z.enum(['missing', 'entered']).optional(),
   reminder: z.enum(['active']).optional(),
   include: z.string().optional(),
@@ -218,7 +218,7 @@ checkinsRouter.get('/', async (req, res) => {
   res.json({
     items: rows.map((c) => {
       const e = byCheckin.get(String(c._id));
-      return withExpense ? { ...toCheckin(c), expense: e ? toExpenseDto(e) : null } : toCheckin(c);
+      return withExpense ? { ...toCheckin(c), expense: e ? toExpense(e) : null } : toCheckin(c);
     }),
   });
 });
@@ -293,7 +293,7 @@ checkinsRouter.put('/:checkinId/expense', async (req, res) => {
         $set: { amount: body.amount, note: body.note ?? '', enteredBy: req.userId },
         $setOnInsert: { tripId: trip._id, tripPlaceId: checkin.tripPlaceId, dayDate: checkin.dayDate },
       },
-      { upsert: true },
+      { upsert: true, runValidators: true },
     );
   // Hai lần nhập song song: lần thua đụng unique index, ghi lại thành cập nhật.
   const result = await upsert().catch((error: { code?: number }) => {
@@ -307,14 +307,14 @@ checkinsRouter.put('/:checkinId/expense', async (req, res) => {
     NotificationModel.updateMany(reminderFilter, { $set: { 'payload.amount': body.amount } }),
     NotificationModel.updateMany({ ...reminderFilter, readAt: null }, { readAt: now() }),
   ]);
-  res.status(result.upsertedCount ? 201 : 200).json({ expense: toExpenseDto(saved) });
+  res.status(result.upsertedCount ? 201 : 200).json({ expense: toExpense(saved) });
 });
 
 checkinsRouter.get('/:checkinId/expense', async (req, res) => {
   const checkin = await loadCheckin(req.trip!, paramOf(req.params, 'checkinId'));
   const expense = await ExpenseModel.findOne({ checkinId: checkin._id }).lean<StoredExpense>();
   if (!expense) throw new AppError(404, 'EXPENSE_NOT_FOUND', 'Check-in này chưa có khoản chi.');
-  res.json({ expense: toExpenseDto(expense) });
+  res.json({ expense: toExpense(expense) });
 });
 
 checkinsRouter.delete('/:checkinId/expense', async (req, res) => {

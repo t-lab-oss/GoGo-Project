@@ -1,0 +1,165 @@
+<main class="flex min-h-dvh flex-col gap-4 px-5 pb-10 pt-5">
+  <header class="flex items-center justify-between">
+    <app-back-link [link]="['/trips']" [query]="{ list: 1 }" />
+    <a
+      [routerLink]="['/trips', tripId, 'expenses']"
+      class="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-brand no-underline shadow-[0_2px_8px_rgba(11,47,74,0.08)]"
+    >
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="3" y="6" width="18" height="14" rx="3" />
+        <path d="M3 10h18" />
+      </svg>
+      Chi tiêu
+    </a>
+  </header>
+
+  @if (error()) {
+    <div class="card flex flex-col gap-3 p-4" role="alert">
+      <p class="m-0 text-sm text-danger">{{ error() }}</p>
+      <button type="button" class="btn btn-outline btn-sm self-start" (click)="load()">
+        Thử lại
+      </button>
+    </div>
+  } @else {
+    @if (trip(); as t) {
+      @if (recap(); as r) {
+        <section>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-xs font-bold text-danger"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5Z" />
+            </svg>
+            Recap chuyến đi
+          </span>
+          <h1 class="m-0 mt-2.5 text-4xl font-extrabold leading-[1.05] tracking-[-1.2px]">
+            {{ t.name }}
+          </h1>
+          <p class="m-0 mt-1.5 text-[13px] text-muted">
+            {{ formatDM(t.startDate) }} – {{ formatDM(t.endDate) }} · {{ t.destination }}
+          </p>
+        </section>
+
+        <section
+          class="rounded-[22px] p-5"
+          style="background: linear-gradient(135deg, #e3f1f9 0%, #ffe3ee 100%)"
+          aria-label="Tổng kết chuyến đi"
+        >
+          <div class="text-[13px] font-medium text-muted">Tổng chi cả chuyến</div>
+          <div class="mt-0.5 text-[38px] font-extrabold leading-none tracking-[-1.5px] text-ink">
+            {{ formatVnd(r.stats.totalSpent) }}
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-2 border-t border-white/70 pt-4">
+            <div>
+              <div class="text-xl font-extrabold">{{ r.stats.dayCount }}</div>
+              <div class="text-xs text-muted">ngày</div>
+            </div>
+            <div>
+              <div class="text-xl font-extrabold">{{ r.stats.visitedCount }}</div>
+              <div class="text-xs text-muted">nơi đã tới</div>
+            </div>
+          </div>
+        </section>
+
+        <h2 class="m-0 mt-1 text-[19px] font-bold tracking-[-0.3px]">Hành trình từng ngày</h2>
+
+        @for (d of days(); track d.date) {
+          <section class="card overflow-hidden">
+            <a
+              [routerLink]="['/trips', tripId, 'recap', d.date]"
+              class="flex items-center gap-3 px-4 pb-3 pt-3.5 no-underline"
+            >
+              <span
+                class="flex h-12 w-12 flex-none flex-col items-center justify-center rounded-2xl bg-brand-soft leading-none text-brand"
+              >
+                <span class="text-[10px] font-semibold uppercase tracking-wide">Ngày</span>
+                <span class="mt-0.5 text-lg font-extrabold">{{ d.index }}</span>
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[15px] font-bold">{{ formatDM(d.date) }}</span>
+                <span class="block text-xs text-muted">
+                  {{ d.visitedCount > 0 ? d.visitedCount + ' nơi đã ghé' : 'Chưa ghé nơi nào' }}
+                </span>
+              </span>
+              <span class="text-right">
+                <span class="block text-[15px] font-extrabold">{{ formatVnd(d.totalSpent) }}</span>
+                <span class="block text-xs font-semibold text-brand">Chi tiết</span>
+              </span>
+            </a>
+
+            @if (d.totalSpent > 0) {
+              <div class="px-4 pb-3" aria-hidden="true">
+                <div class="h-1.5 overflow-hidden rounded-full bg-[#F6F1F3]">
+                  <div
+                    class="h-full rounded-full"
+                    style="background: linear-gradient(90deg, #ff8db6, #17709f)"
+                    [style.width.%]="d.percent"
+                  ></div>
+                </div>
+              </div>
+            }
+
+            @if (d.stops.length > 0) {
+              <ol class="m-0 list-none border-t border-line px-4 py-3.5">
+                @for (s of d.stops; track s.checkinId; let last = $last) {
+                  <li class="relative flex gap-3" [class.pb-4]="!last">
+                    @if (!last) {
+                      <span
+                        class="absolute left-[13px] top-7 h-[calc(100%-1.75rem)] w-0.5 bg-line"
+                        aria-hidden="true"
+                      ></span>
+                    }
+                    <span
+                      class="relative flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand text-xs font-bold text-white"
+                    >
+                      {{ s.n }}
+                    </span>
+                    <span class="min-w-0 flex-1 pt-0.5">
+                      <span class="block truncate text-sm font-semibold">{{ s.label }}</span>
+                      <span class="block text-xs text-muted">{{ s.time }}</span>
+                    </span>
+                  </li>
+                }
+              </ol>
+            }
+          </section>
+        } @empty {
+          <p class="card m-0 p-4 text-sm text-muted">Chuyến này chưa có ngày nào.</p>
+        }
+
+        @if (r.stats.visitedCount === 0) {
+          <p
+            class="m-0 rounded-[18px] border-[1.5px] border-dashed border-line px-4 py-6 text-center text-[13px] text-muted"
+          >
+            Chưa có nơi nào được đánh dấu “Đã ghé”. Khi bạn ghé quán trong chuyến, hành trình sẽ
+            hiện ở đây.
+          </p>
+        }
+      } @else {
+        <p class="m-0 text-sm text-muted">Đang tải recap…</p>
+      }
+    } @else {
+      <p class="m-0 text-sm text-muted">Đang tải recap…</p>
+    }
+  }
+</main>

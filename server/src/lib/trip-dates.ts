@@ -48,3 +48,10 @@ export function tripStatus(startDate: string, endDate: string, today: string): T
   if (today > endDate) return 'finished';
   return 'ongoing';
 }
+
+/** Đúng dạng YYYY-MM-DD và là ngày có thật (loại 2026-02-30). */
+export function isValidDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const t = Date.parse(`${date}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === date;
+}

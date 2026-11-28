@@ -125,39 +125,6 @@ export interface Expense {
   updatedAt: string;
 }
 
-export interface ExpenseItem {
-  checkinId: string;
-  tripPlaceId: string;
-  placeLabel: string;
-  clusterName: string;
-  dayIndex: number;
-  amount: number | null;
-  note: string | null;
-}
-
-export interface ExpensesByDay {
-  total: number;
-  missingCount: number;
-  days: { date: string; index: number; total: number; items: ExpenseItem[] }[];
-}
-
-export interface ExpensesByPlace {
-  total: number;
-  missingCount: number;
-  places: {
-    tripPlaceId: string;
-    placeLabel: string;
-    total: number;
-    visits: {
-      date: string;
-      dayIndex: number;
-      clusterName: string;
-      checkinId: string;
-      amount: number | null;
-    }[];
-  }[];
-}
-
 export interface Cluster {
   id: string;
   tripId: string;
@@ -252,4 +219,107 @@ export interface Notification {
   dedupeKey: string;
   readAt: string | null;
   createdAt: string;
+}
+
+/** Body của POST /trips và PATCH /trips/:tripId. */
+export interface TripInput {
+  name: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+}
+
+/** Body của POST và PATCH cụm. */
+export interface ClusterInput {
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * Body của POST và PATCH quán ở màn chuẩn bị. Phải có address hoặc mapsUrl.
+ * Trường bỏ trống thì PATCH giữ nguyên giá trị đang có.
+ */
+export interface PlaceInput {
+  clusterId?: string;
+  label?: string;
+  address?: string;
+  mapsUrl?: string | null;
+  note?: string;
+  manualHours?: { open: string; close: string } | null;
+  manualPrice?: string | null;
+}
+
+export interface ExpenseItem {
+  checkinId: string;
+  tripPlaceId: string;
+  placeLabel: string;
+  clusterName: string;
+  dayIndex: number;
+  /** null nghĩa là "Chưa nhập". */
+  amount: number | null;
+  note: string | null;
+}
+
+/** Phản hồi của GET /trips/:tripId/expenses?groupBy=day. */
+export interface ExpensesByDay {
+  total: number;
+  missingCount: number;
+  days: { date: string; index: number; total: number; items: ExpenseItem[] }[];
+}
+
+/** Phản hồi của GET /trips/:tripId/expenses?groupBy=place. */
+export interface ExpensesByPlace {
+  total: number;
+  missingCount: number;
+  places: {
+    tripPlaceId: string;
+    placeLabel: string;
+    total: number;
+    visits: {
+      date: string;
+      dayIndex: number;
+      clusterName: string;
+      checkinId: string;
+      amount: number | null;
+    }[];
+  }[];
+}
+
+/** Recap chưa ghép ảnh: momentCount, highlight, cover, moment và moments còn để trống. */
+export interface TripRecap {
+  stats: { dayCount: number; visitedCount: number; momentCount: number; totalSpent: number };
+  route: {
+    checkinId: string;
+    label: string;
+    lat: number | null;
+    lng: number | null;
+    takenAt: string;
+    dayDate: string;
+  }[];
+  days: {
+    date: string;
+    index: number;
+    visitedCount: number;
+    totalSpent: number;
+    highlight: null;
+  }[];
+  cover: null;
+}
+
+export interface DayRecap {
+  date: string;
+  index: number;
+  totalSpent: number;
+  visits: {
+    checkinId: string;
+    time: string;
+    clusterName: string;
+    label: string;
+    lat: number | null;
+    lng: number | null;
+    amount: number | null;
+    moment: null;
+  }[];
+  moments: never[];
 }
