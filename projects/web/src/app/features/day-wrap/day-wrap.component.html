@@ -1,0 +1,79 @@
+@if (wrap(); as w) {
+  <div
+    class="screen fixed inset-0 z-[70] flex justify-center overflow-y-auto text-white"
+    [style.background]="'linear-gradient(170deg, ' + color().top + ', ' + color().bottom + ')'"
+  >
+    <div
+      #panel
+      class="flex min-h-full w-full max-w-[430px] flex-col px-5 pb-5 pt-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dw-title"
+      (keydown)="onKeydown($event)"
+    >
+      <header class="hand text-center">
+        <p class="m-0 text-lg text-white/90">{{ w.tripName }} · {{ formatDM(w.date) }}</p>
+        <h2 id="dw-title" class="script m-0 mt-1 text-[52px] font-bold leading-[1.15]">Hết ngày {{ w.index }} rồi!</h2>
+        <!-- Nét gạch chân vẽ tay. -->
+        <svg class="mx-auto block text-[#ffd84d]" width="190" height="14" viewBox="0 0 190 14" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 9Q60 2 112 5t74 1" stroke-width="3.5" />
+          <path d="M34 12q50-5 104-3" stroke-width="1.5" />
+        </svg>
+        <p class="m-0 mt-1.5 text-lg text-white">
+          {{ w.visitedCount }} nơi đã ghé · {{ w.photoCount }} ảnh
+          @if (w.totalSpent > 0) {
+            · {{ formatVnd(w.totalSpent) }}
+          }
+        </p>
+      </header>
+
+      <div class="flex-1"></div>
+
+      <div class="collage relative mx-auto my-2 h-[466px] w-full max-w-[360px] flex-none">
+        <!-- Tem hoạt hoạ ở giữa. -->
+        <div class="center" aria-hidden="true">
+          <div class="stamp stamp-center">
+            <app-stamp-art [color]="color()" [day]="w.index" [dateText]="formatDM(w.date)" />
+          </div>
+          <!-- Dấu bưu điện đóng đè lên góc tem. -->
+          <svg class="postmark" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="38" fill="#fffaf0" opacity="0.93" />
+            <g fill="none" stroke="currentColor">
+              <circle cx="40" cy="40" r="36" stroke-width="3" />
+              <circle cx="40" cy="40" r="29" stroke-width="1.5" stroke-dasharray="3 3" />
+              <path d="M19 27h42M19 54h42" stroke-width="2" />
+            </g>
+            <text x="40" y="46" text-anchor="middle" fill="currentColor" font-size="15" font-weight="800">ĐÃ ĐI</text>
+          </svg>
+        </div>
+
+        <!-- Ảnh thật trong ngày làm tem xung quanh. -->
+        @for (p of w.photos; track p.id; let i = $index) {
+          <figure class="photo m-0" [class]="'slot-' + i">
+            <div class="stamp stamp-photo">
+              <img
+                class="block h-full w-full object-cover"
+                [src]="p.thumbUrl"
+                [alt]="p.placeLabel ? 'Ảnh tại ' + p.placeLabel : 'Ảnh trong ngày'"
+                (error)="dropPhoto(p.id)"
+              />
+            </div>
+          </figure>
+        }
+      </div>
+
+      <div class="flex-1"></div>
+
+      <button type="button" data-autofocus class="btn h-[54px] flex-none bg-white text-ink" (click)="openRecap()">
+        Xem recap ngày {{ w.index }}
+      </button>
+      <button
+        type="button"
+        class="mx-auto mt-1 min-h-11 flex-none cursor-pointer border-0 bg-transparent px-5 text-sm font-semibold text-white/90 underline"
+        (click)="dismiss()"
+      >
+        Đóng
+      </button>
+    </div>
+  </div>
+}

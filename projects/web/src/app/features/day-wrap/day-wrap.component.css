@@ -1,0 +1,108 @@
+.screen button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+/* Chữ viết tay, cả hai phông đều có dấu tiếng Việt. */
+.hand {
+  font-family: 'Patrick Hand', cursive;
+  text-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+}
+.script {
+  font-family: 'Dancing Script', cursive;
+}
+/* Mép răng cưa: đục lỗ tròn cách đều, rộng và cao của tem phải chia hết cho 3 lần bán kính. */
+.stamp {
+  --r: 5px;
+  box-sizing: border-box;
+  padding: 11px;
+  background: #fffaf0;
+  -webkit-mask:
+    radial-gradient(circle, transparent var(--r), #000 calc(var(--r) + 0.5px)) -7.5px -7.5px / 15px 15px,
+    linear-gradient(#000 0 0) center / calc(100% - 15px) calc(100% - 15px) no-repeat;
+  mask:
+    radial-gradient(circle, transparent var(--r), #000 calc(var(--r) + 0.5px)) -7.5px -7.5px / 15px 15px,
+    linear-gradient(#000 0 0) center / calc(100% - 15px) calc(100% - 15px) no-repeat;
+}
+.stamp-center {
+  width: 195px;
+  height: 255px;
+}
+.stamp-photo {
+  --r: 4px;
+  width: 105px;
+  height: 120px;
+  padding: 9px;
+}
+/* Bóng đổ đặt ở thẻ bọc ngoài vì mặt nạ cắt mất bóng của chính con tem. */
+.center,
+.photo {
+  position: absolute;
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 0.35));
+  animation: stamp-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+.center {
+  left: calc(50% - 97px);
+  top: 84px;
+  rotate: -2deg;
+  z-index: 1;
+}
+.postmark {
+  position: absolute;
+  right: -30px;
+  top: -32px;
+  width: 84px;
+  color: #d3121f;
+  rotate: 14deg;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.35));
+}
+.slot-0 {
+  left: 0;
+  top: 0;
+  rotate: -10deg;
+  animation-delay: 0.15s;
+}
+.slot-1 {
+  right: 0;
+  top: 8px;
+  rotate: 9deg;
+  animation-delay: 0.25s;
+}
+.slot-2 {
+  left: 0;
+  bottom: 30px;
+  rotate: 8deg;
+  z-index: 2;
+  animation-delay: 0.35s;
+}
+.slot-3 {
+  right: 0;
+  bottom: 38px;
+  rotate: -8deg;
+  z-index: 2;
+  animation-delay: 0.45s;
+}
+.slot-4 {
+  left: calc(50% - 52px);
+  bottom: 0;
+  rotate: -3deg;
+  z-index: 3;
+  animation-delay: 0.55s;
+}
+/* Màn thấp thì thu nhỏ cụm tem để nút xem recap không bị đẩy khỏi màn hình. */
+@media (max-height: 740px) {
+  .collage {
+    zoom: 0.78;
+  }
+}
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    scale: 1.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .center,
+  .photo {
+    animation: none;
+  }
+}

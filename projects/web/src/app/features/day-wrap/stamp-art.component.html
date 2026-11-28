@@ -1,0 +1,79 @@
+<svg viewBox="0 0 180 240" class="block h-full w-full">
+  <defs>
+    <!-- Làm nét run như vẽ tay. -->
+    <filter id="dw-ink" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="4" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <!-- Mép màu nước loang không đều. -->
+    <filter id="dw-wash" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="11" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="11" xChannelSelector="R" yChannelSelector="G" />
+      <feGaussianBlur stdDeviation="0.5" />
+    </filter>
+  </defs>
+
+  <rect width="180" height="240" fill="#fbf4e4" />
+
+  <!-- Các mảng màu nước -->
+  <g filter="url(#dw-wash)">
+    <path d="M12 24Q60 6 112 18T170 40Q176 86 140 96T66 90Q14 96 10 62z" [attr.fill]="color().soft" opacity="0.9" />
+    <path d="M30 34Q70 22 104 34T92 66Q48 74 30 58z" [attr.fill]="color().top" opacity="0.14" />
+    <circle cx="128" cy="49" r="19" fill="#ffb627" opacity="0.8" />
+    <path d="M6 128L46 70l26 34 28-42 40 52 16-14 20 28v20H6z" [attr.fill]="color().top" opacity="0.4" />
+    <path d="M100 62l40 52-20 14-22-26z" [attr.fill]="color().bottom" opacity="0.28" />
+    <path d="M4 132Q42 106 86 128T176 120v46H4z" fill="#6f9a6a" opacity="0.5" />
+    <path d="M4 152Q60 136 104 156T176 150v26H4z" fill="#d9a65c" opacity="0.45" />
+  </g>
+
+  <!-- Nét mực -->
+  <g filter="url(#dw-ink)" fill="none" stroke="#3a2c25" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Mặt trời, mây, chim -->
+    <g stroke-width="1.1">
+      <path d="M142 45a16 16 0 1 1-6-9M139 38a17 17 0 0 1 6 10" />
+      <path d="M127 24v-8M147 31l6-5M155 51h9M148 68l5 5M106 30l-5-5" />
+      <path d="M20 48q0-9 10-8 3-10 15-8 10-1 11 9 9 0 8 8M24 50h36M32 54h18" />
+      <path d="M68 28q4-5 8 0 4-5 8 0M86 40q3-4 6 0 3-4 6 0" />
+    </g>
+    <!-- Núi: đi hai nét lệch nhau cho giống phác thảo -->
+    <path stroke-width="1.6" d="M6 126L46 70l26 34 28-42 40 52 16-14 20 28" />
+    <path stroke-width="0.6" d="M8 121L45 73l21 26M76 99l25-35 35 47M143 112l14-11" />
+    <path stroke-width="0.8" d="M38 81l5 7 5-5 5 8 4-5M91 76l6 8 5-6 6 9 5-4" />
+    <path stroke-width="0.6" d="M50 80l-4 12M55 86l-5 15M61 93l-5 14M106 72l-4 14M112 79l-6 18M119 88l-6 17M126 97l-5 13" />
+    <!-- Đồi -->
+    <path stroke-width="1.2" d="M4 132Q42 106 86 128q24 10 40 2 24-14 50-10" />
+    <!-- Rừng thông -->
+    <g stroke-width="1">
+      <path d="M22 100l-7 13h4l-8 13h5l-9 13h30l-9-13h5l-8-13h4zM22 139v9" />
+      <path d="M41 116l-5 9h3l-6 10h4l-6 9h20l-6-9h4l-6-10h3zM41 144v7" />
+      <path d="M154 104l-6 11h3l-7 12h4l-8 12h28l-8-12h4l-7-12h3zM154 139v9" />
+      <path d="M137 122l-4 8h3l-5 8h3l-5 7h17l-5-7h3l-5-8h3zM137 145v6" />
+    </g>
+    <!-- Nhà nhỏ trên đồi -->
+    <path stroke-width="1" d="M96 127v-10l10-8 10 8v10zM93 119l13-11 13 11M103 127v-6h6v6M112 113v-5h3v8" />
+    <!-- Đường uốn lượn -->
+    <path stroke-width="1.2" d="M103 130q-14 6-3 12t-18 15Q50 166 34 180M110 130q-8 7 6 13t-3 17q-14 11-17 20" />
+    <path stroke-width="0.8" stroke-dasharray="4 5" d="M105 134q-8 5 3 10t-10 15q-27 11-33 21" />
+    <!-- Cỏ -->
+    <path stroke-width="0.8" d="M16 158l2-6 2 6 3-5M128 164l2-7 3 7 2-5M150 156l2-5 2 5M22 171l3-6 1 6" />
+  </g>
+
+  <!-- Bạn đi xe máy trên đường -->
+  <g filter="url(#dw-ink)" stroke="#3a2c25" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="62" cy="170" r="6.5" fill="#fbf4e4" />
+    <circle cx="88" cy="170" r="6.5" fill="#fbf4e4" />
+    <circle cx="62" cy="170" r="1.5" fill="#3a2c25" />
+    <circle cx="88" cy="170" r="1.5" fill="#3a2c25" />
+    <path d="M57 164q3-10 15-8l4 8h6l3-12 5 2M62 170h14l-4-8" [attr.fill]="color().top" />
+    <path d="M68 156q-2-13 7-15 8 2 6 11l7 1M75 152l3 9 6 3" fill="none" />
+    <path d="M66 143q-8 1-7 11l8 2z" fill="#d9a65c" />
+    <circle cx="77" cy="135" r="6" fill="#fbf4e4" />
+    <path d="M70 135q0-8 8-8t7 7z" [attr.fill]="color().top" />
+    <path d="M40 160h10M36 166h13M42 172h8" fill="none" stroke-width="0.8" />
+  </g>
+
+  <!-- Chữ viết tay -->
+  <path d="M40 220q48-9 100-3" fill="none" [attr.stroke]="color().top" stroke-width="5" stroke-linecap="round" opacity="0.35" filter="url(#dw-wash)" />
+  <text x="90" y="213" text-anchor="middle" fill="#3a2c25" font-size="34" font-weight="700" style="font-family: 'Dancing Script', cursive">Ngày {{ day() }}</text>
+  <text x="90" y="231" text-anchor="middle" fill="#6b574c" font-size="12" style="font-family: 'Patrick Hand', cursive">Go!Go! · {{ dateText() }}</text>
+</svg>

@@ -1,3 +1,9 @@
 <div class="mx-auto min-h-dvh w-full max-w-[430px] bg-surface">
   <router-outlet />
+  <!-- Tải sau khi app rảnh để không làm chậm lần mở đầu. -->
+  @if (auth.isLoggedIn()) {
+    @defer (on idle) {
+      <app-day-wrap />
+    }
+  }
 </div>
