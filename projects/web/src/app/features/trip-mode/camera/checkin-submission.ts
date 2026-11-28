@@ -2,6 +2,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { newClientId } from 'shared';
 import type { Checkin, CheckinInput, CheckinResult, Moment, MomentInput, UploadTickets } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
+import type { QueuedCheckin } from '../../../core/offline/outbox.types';
 import type { CapturedPhoto } from './photo';
 
 export interface Location {
@@ -22,8 +23,10 @@ export interface CheckinApi {
  */
 export type CheckinOutcome =
   | { kind: 'created'; checkin: Checkin; moment: Moment | null }
-  | { kind: 'joined'; checkin: null; moment: Moment }
-  | { kind: 'already'; checkin: null; moment: null }
+  | { kind: 'joined'; checkin: null; moment: Moment; existingCheckinId: string }
+  | { kind: 'already'; checkin: null; moment: null; existingCheckinId: string }
+  /** Mất mạng: đã lưu trên máy, sẽ tự gửi sau. */
+  | { kind: 'queued'; checkin: null; moment: null }
   /** Lưu khoảnh khắc (không check-in). */
   | { kind: 'moment'; checkin: null; moment: Moment };
 
@@ -32,7 +35,7 @@ export type CheckinOutcome =
  * (API Contract mục 1): cùng ID thì server trả bản đã có.
  */
 export class CheckinSubmission {
-  readonly checkinId = newClientId();
+  readonly checkinId: string;
   readonly momentId: string | null;
   /** Số sao chọn ở màn xem ảnh, đặt trước lần gửi đầu tiên. */
   rating: number | null = null;
@@ -52,9 +55,31 @@ export class CheckinSubmission {
       takenAt: Date;
       photo: CapturedPhoto | null;
       location: Promise<Location | null>;
+      /** Có sẵn khi gửi lại từ hàng đợi offline. */
+      checkinId?: string;
+      momentId?: string | null;
     },
   ) {
-    this.momentId = data.photo ? newClientId() : null;
+    this.checkinId = data.checkinId ?? newClientId();
+    this.momentId = data.photo ? (data.momentId ?? newClientId()) : null;
+  }
+
+  /** Việc chờ gửi khi mất mạng, giữ nguyên ID, giờ và vị trí lúc chụp. */
+  async toQueued(place: { label: string; clusterId: string }): Promise<QueuedCheckin> {
+    return {
+      kind: 'checkin',
+      checkinId: this.checkinId,
+      momentId: this.momentId,
+      placeId: this.data.placeId,
+      placeLabel: place.label,
+      clusterId: place.clusterId,
+      takenAt: this.data.takenAt.toISOString(),
+      location: await this.data.location,
+      photo: this.data.photo,
+      rating: this.rating,
+      review: this.review,
+      caption: this.caption,
+    };
   }
 
   async submit(): Promise<CheckinOutcome> {
@@ -105,9 +130,9 @@ export class CheckinSubmission {
     } catch (err) {
       const e = toApiError(err);
       if (e.code !== 'ALREADY_CHECKED_IN') throw err;
-      if (!this.momentId) return { kind: 'already', checkin: null, moment: null };
       const id = (e.details as { checkinId?: string } | undefined)?.checkinId;
       if (!id) throw err;
+      if (!this.momentId) return { kind: 'already', checkin: null, moment: null, existingCheckinId: id };
       this.existingCheckinId = id;
       return this.join(id);
     }
@@ -128,7 +153,7 @@ export class CheckinSubmission {
         checkinId,
       }),
     );
-    return { kind: 'joined', checkin: null, moment };
+    return { kind: 'joined', checkin: null, moment, existingCheckinId: checkinId };
   }
 }
 

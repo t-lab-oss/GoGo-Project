@@ -1,6 +1,8 @@
 import type { Checkin, Cluster, PlaceImage, PlaceImageResult } from 'shared';
 import {
   checkinMoment,
+  notificationText,
+  relativeTime,
   groupByDay,
   nearestPlace,
   pressAmountKey,
@@ -327,6 +329,25 @@ describe('album và địa điểm khoảnh khắc', () => {
     expect(nearestPlace(list, { lat: 10.2, lng: 103.96 })?.id).toBe('gan');
     expect(nearestPlace(list, { lat: 11, lng: 103.96 })).toBeNull();
     expect(nearestPlace(list, null)).toBeNull();
+  });
+});
+
+describe('thông báo', () => {
+  it('nhắc tiền còn thiếu thì có nút nhập, đã nhập thì hiện số tiền', () => {
+    const base = { type: 'expense_skipped' as const, payload: { label: 'Quán 3' } };
+    expect(notificationText(base).needsAmount).toBeTrue();
+    expect(notificationText(base).title).toBe('Thêm số tiền cho Quán 3');
+    const done = notificationText({ ...base, payload: { label: 'Quán 3', amount: 0 } });
+    expect(done.needsAmount).toBeFalse();
+    expect(done.body).toContain('Đã nhập');
+  });
+
+  it('thời gian tương đối theo múi giờ chuyến', () => {
+    const now = new Date('2026-11-26T03:00:00Z');
+    const tz = 'Asia/Ho_Chi_Minh';
+    expect(relativeTime('2026-11-25T18:30:00Z', now, tz)).toBe('01:30');
+    expect(relativeTime('2026-11-25T10:00:00Z', now, tz)).toBe('Hôm qua');
+    expect(relativeTime('2026-11-20T10:00:00Z', now, tz)).toBe('20/11');
   });
 });
 

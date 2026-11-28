@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/comm
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
+import { isNetworkError } from '../offline/network';
 import { AuthService } from './auth.service';
 
 const withToken = (req: HttpRequest<unknown>, token: string) =>
@@ -27,7 +28,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
       return auth.refresh().pipe(
         switchMap((fresh) => next(withToken(req, fresh))),
-        catchError(() => {
+        catchError((refreshError: unknown) => {
+          // Mất mạng giữa chừng không phải hết phiên: giữ đăng nhập, để nơi gọi tự thử lại.
+          if (isNetworkError(refreshError)) return throwError(() => refreshError);
           auth.clear();
           void router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
           return throwError(() => err);

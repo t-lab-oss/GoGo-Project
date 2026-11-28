@@ -1,0 +1,71 @@
+<div #panel class="screen fixed inset-0 z-50 flex justify-center bg-surface" role="dialog" aria-modal="true" aria-labelledby="nt-title" (keydown)="onKeydown($event)">
+  <div class="flex h-full w-full max-w-[430px] flex-col">
+    <!-- Lướt phần đầu xuống để đóng. -->
+    <div class="touch-none select-none px-5 pb-2 pt-5" appSwipe (appSwipe)="$event === 'down' && closed.emit()">
+      <header class="flex items-center justify-between gap-3">
+        <button type="button" data-autofocus class="icon-btn cursor-pointer border-0" aria-label="Đóng thông báo" (click)="closed.emit()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        <h2 id="nt-title" class="m-0 text-xl font-bold tracking-[-0.3px]">Thông báo</h2>
+        @if (unread() > 0) {
+          <button type="button" class="icon-btn cursor-pointer border-0 text-brand" aria-label="Đánh dấu đã đọc tất cả" (click)="markAll()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 13l4 4L14 8" /><path d="M11 16l1 1L22 7" /></svg>
+          </button>
+        } @else {
+          <span class="w-11 flex-none" aria-hidden="true"></span>
+        }
+      </header>
+      <p class="m-0 mt-1 text-center text-[13px] text-muted" aria-live="polite">
+        {{ unread() > 0 ? unread() + ' chưa đọc · lướt trái để đánh dấu đã đọc' : 'Lướt xuống để đóng' }}
+      </p>
+    </div>
+
+    <div class="flex flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-5 pb-6 pt-2">
+      @if (error()) {
+        <div class="card flex flex-col gap-3 p-4" role="alert">
+          <p class="m-0 text-sm text-danger">{{ error() }}</p>
+          <button type="button" class="btn btn-outline min-h-11 cursor-pointer" (click)="load()">Thử lại</button>
+        </div>
+      }
+      @for (n of items(); track n.id) {
+        @if (text(n); as t) {
+          <article
+            class="card touch-pan-y select-none border-[1.5px] p-3.5"
+            [class]="n.readAt ? 'border-transparent opacity-70' : 'border-accent'"
+            appSwipe
+            (appSwipe)="onSwipe($event, n)"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="m-0 text-[15px] font-semibold">
+                  @if (!n.readAt) {
+                    <span class="sr-only">Chưa đọc: </span>
+                  }
+                  {{ t.title }}
+                </h3>
+                <p class="m-0 mt-0.5 text-[13px] text-muted">{{ t.body }}</p>
+              </div>
+              <span class="flex-none text-xs text-muted">{{ when(n) }}</span>
+            </div>
+            @if (t.needsAmount || !n.readAt) {
+              <div class="mt-2.5 flex justify-end gap-2">
+                @if (!n.readAt) {
+                  <button type="button" class="min-h-11 cursor-pointer border-0 bg-transparent px-3 text-[13px] font-semibold text-muted" (click)="markRead(n)">Đã đọc</button>
+                }
+                @if (t.needsAmount) {
+                  <button type="button" class="btn btn-primary btn-sm min-h-11 cursor-pointer" (click)="openExpense(n)">Nhập tiền</button>
+                }
+              </div>
+            }
+          </article>
+        }
+      } @empty {
+        @if (loaded()) {
+          <p class="card m-0 p-4 text-center text-sm text-muted">Chưa có thông báo nào.</p>
+        } @else if (!error()) {
+          <p class="m-0 mt-4 text-center text-sm text-muted" role="status">Đang tải…</p>
+        }
+      }
+    </div>
+  </div>
+</div>

@@ -12,6 +12,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { toApiError } from '../../../core/api/api-error';
+import { isNetworkError } from '../../../core/offline/network';
+import { OutboxService } from '../../../core/offline/outbox.service';
 import { trapTab } from '../dialog-keys';
 import { SwipeDirective } from '../swipe.directive';
 import { formatVnd, pressAmountKey } from '../trip-mode.logic';
@@ -35,12 +37,14 @@ export interface ExpenseTarget {
 })
 export class ExpenseEntrySheetComponent implements OnInit {
   private readonly api = inject(TripModeService);
+  private readonly outbox = inject(OutboxService);
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');
 
   readonly tripId = input.required<string>();
   readonly target = input.required<ExpenseTarget>();
 
-  readonly saved = output<void>();
+  /** queued = lưu trên máy vì mất mạng. */
+  readonly saved = output<{ queued: boolean }>();
   readonly closed = output<void>();
 
   protected readonly keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', '⌫'];
@@ -95,15 +99,45 @@ export class ExpenseEntrySheetComponent implements OnInit {
     }
     this.saving.set(true);
     this.error.set('');
-    this.api.putExpense(this.tripId(), this.target().checkinId, Number(this.digits()), this.note().trim()).subscribe({
+    const { checkinId } = this.target();
+    // Check-in còn chờ gửi thì tiền phải xếp sau nó.
+    if (this.outbox.hasCheckin(checkinId)) {
+      void this.queue();
+      return;
+    }
+    this.api.putExpense(this.tripId(), checkinId, Number(this.digits()), this.note().trim()).subscribe({
       next: () => {
         this.saving.set(false);
-        this.saved.emit();
+        this.saved.emit({ queued: false });
       },
       error: (err: unknown) => {
+        if (isNetworkError(err)) {
+          this.outbox.markOffline();
+          void this.queue();
+          return;
+        }
         this.saving.set(false);
         this.error.set(toApiError(err).message);
       },
     });
+  }
+
+  private async queue(): Promise<void> {
+    const { checkinId, placeLabel } = this.target();
+    try {
+      await this.outbox.enqueue(this.tripId(), {
+        kind: 'expense',
+        checkinId,
+        placeLabel,
+        amount: Number(this.digits()),
+        note: this.note().trim(),
+      });
+      this.saved.emit({ queued: true });
+      void this.outbox.flush();
+    } catch {
+      this.error.set('Máy chưa lưu được khoản chi. Hãy kiểm tra mạng rồi thử lại.');
+    } finally {
+      this.saving.set(false);
+    }
   }
 }

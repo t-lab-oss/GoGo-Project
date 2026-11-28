@@ -13,6 +13,8 @@ import {
 } from '@angular/core';
 import type { Mood } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
+import { isNetworkError } from '../../../core/offline/network';
+import { OutboxService } from '../../../core/offline/outbox.service';
 import { StarsComponent } from '../stars/stars.component';
 import { SwipeDirective } from '../swipe.directive';
 import {
@@ -60,6 +62,7 @@ export function cameraErrorMessage(err: unknown): string {
 })
 export class CameraComponent {
   private readonly api = inject(TripModeService);
+  private readonly outbox = inject(OutboxService);
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
   private readonly reviewPhoto = viewChild<ElementRef<HTMLElement>>('reviewPhoto');
@@ -70,6 +73,7 @@ export class CameraComponent {
   readonly mode = input<'checkin' | 'moment'>('checkin');
   readonly placeId = input('');
   readonly placeName = input('');
+  readonly clusterId = input('');
   readonly clusterName = input('');
 
   readonly done = output<CheckinOutcome>();
@@ -288,6 +292,8 @@ export class CameraComponent {
       this.done.emit(outcome);
     } catch (err) {
       if (this.destroyed) return;
+      if (isNetworkError(err) && (await this.queue(submission))) return;
+      if (this.destroyed) return;
       const e = toApiError(err);
       this.errorMessage.set(
         e.code === 'INTERNAL_ERROR' ? 'Chưa gửi được. Hãy kiểm tra mạng rồi thử lại.' : e.message,
@@ -295,6 +301,25 @@ export class CameraComponent {
       this.state.set('failed');
       this.focusId('cam-post');
     }
+  }
+
+  /** Mất mạng: lưu trên máy và coi như xong. Máy không lưu được thì báo lỗi để thử lại. */
+  private async queue(submission: CheckinSubmission | MomentSubmission): Promise<boolean> {
+    try {
+      const op =
+        submission instanceof MomentSubmission
+          ? await submission.toQueued()
+          : await submission.toQueued({ label: this.placeName(), clusterId: this.clusterId() });
+      await this.outbox.enqueue(this.tripId(), op);
+    } catch {
+      return false;
+    }
+    this.outbox.markOffline();
+    if (this.destroyed) return true;
+    const frame = this.reviewPhoto()?.nativeElement;
+    if (this.photoBlob && frame) this.flight.emit({ blob: this.photoBlob, from: frame.getBoundingClientRect() });
+    this.done.emit({ kind: 'queued', checkin: null, moment: null });
+    return true;
   }
 
   protected retake(): void {

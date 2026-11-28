@@ -218,3 +218,51 @@ describe('GET expenses', () => {
     expect(byPlace.body.places).toHaveLength(2);
   });
 });
+
+describe('thông báo (chuông)', () => {
+  const nurl = (path = '') => `/api/trips/${tripId}/notifications${path}`;
+  const inbox = (token = hany, query: object = {}) => request(app).get(nurl()).query(query).set(auth(token));
+  const create = (body: object, token = hany) => request(app).post(nurl()).set(auth(token)).send(body);
+  const rain = { type: 'rain', dedupeKey: 'rain:t:2026-11-23', payload: { date: '2026-11-23' } };
+
+  it('mỗi người chỉ thấy thông báo của mình; nhập tiền thì lời nhắc tự đánh dấu đã đọc', async () => {
+    await twoCheckins();
+    await skip(C2, 2);
+    expect((await inbox()).body).toMatchObject({ unreadCount: 1 });
+    expect((await inbox()).body.items[0]).toMatchObject({ type: 'expense_skipped', refId: C2, readAt: null });
+    expect((await inbox(friend)).body).toEqual({ items: [], unreadCount: 0 });
+
+    await putExpense(C2, { amount: 42000 }, friend);
+    const after = await inbox();
+    expect(after.body.unreadCount).toBe(0);
+    expect(after.body.items[0].payload.amount).toBe(42000);
+
+    await request(app).delete(url(`/${C2}/expense`)).set(auth(hany)).expect(204);
+    expect((await inbox()).body.items[0].payload.amount).toBeUndefined();
+  });
+
+  it('tạo idempotent theo dedupeKey; client không tạo được expense_skipped', async () => {
+    const first = await create(rain);
+    expect(first.status).toBe(201);
+    const again = await create(rain);
+    expect(again.status).toBe(200);
+    expect(again.body.notification.id).toBe(first.body.notification.id);
+    expect((await create({ ...rain, type: 'expense_skipped' })).status).toBe(400);
+    expect((await create({ ...rain, dedupeKey: 'expense_skipped:x' })).status).toBe(400);
+  });
+
+  it('đánh dấu một cái hoặc tất cả; của người khác thì 404', async () => {
+    const a = (await create(rain)).body.notification.id;
+    await create({ ...rain, dedupeKey: 'rain:t:2026-11-24' });
+    const read = { read: true };
+    const foreign = await request(app).patch(nurl(`/${a}`)).set(auth(friend)).send(read);
+    expect(foreign.body.error.code).toBe('NOTIFICATION_NOT_FOUND');
+    const one = await request(app).patch(nurl(`/${a}`)).set(auth(hany)).send(read);
+    expect(one.body.notification.readAt).not.toBeNull();
+    expect((await inbox(hany, { unread: 'true' })).body.items).toHaveLength(1);
+    await request(app).patch(nurl('?unread=true')).set(auth(hany)).send(read).expect(204);
+    expect((await inbox()).body.unreadCount).toBe(0);
+    expect((await inbox(outsider)).body.error.code).toBe('TRIP_NOT_FOUND');
+  });
+});
+

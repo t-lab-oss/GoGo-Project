@@ -12,12 +12,19 @@
     >
       Go!<span class="text-accent">Go!</span>
     </a>
-    <button type="button" class="icon-btn relative cursor-pointer border-0" aria-label="Thông báo">
+    <button
+      type="button"
+      class="icon-btn relative cursor-pointer border-0"
+      [attr.aria-label]="unread() > 0 ? 'Thông báo, ' + unread() + ' chưa đọc' : 'Thông báo'"
+      (click)="openNotifications()"
+    >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7" />
         <path d="M10 20a2 2 0 0 0 4 0" />
       </svg>
-      <span class="absolute right-2.5 top-2.5 h-[9px] w-[9px] rounded-full border-2 border-white bg-accent" aria-hidden="true"></span>
+      @if (unread() > 0) {
+        <span class="absolute right-2.5 top-2.5 h-[9px] w-[9px] rounded-full border-2 border-white bg-accent" aria-hidden="true"></span>
+      }
     </button>
   </header>
 
@@ -33,6 +40,8 @@
     }
     @case ('ready') {
       @if (trip(); as t) {
+        <app-offline-banner [tripId]="t.id" />
+
         <section class="mt-1" aria-label="Chuyến đi">
           <div class="text-[13px] font-medium text-muted">{{ dayText() }}</div>
           <h1 class="m-0 mt-0.5 text-[40px] font-extrabold leading-[1.05] tracking-[-1.4px]">{{ t.name }}</h1>
@@ -221,7 +230,7 @@
               <span class="absolute inset-0 -rotate-[9deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #9fd3ee, #0e4f75)"></span>
               <span class="absolute inset-0 rotate-[7deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffb3cf, #17709f)"></span>
               <span class="absolute inset-0 rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffd0e1, #3c8fbf)"></span>
-              @if (latestMoment(); as m) {
+              @if (albumPreview(); as m) {
                 @if (m.thumbUrl) {
                   <img class="absolute inset-0 h-full w-full rounded-[14px] border-2 border-white object-cover" [src]="m.thumbUrl" alt="" (error)="onAlbumImageError(m)" />
                 }
@@ -259,10 +268,21 @@
             [mode]="cam.mode"
             [placeId]="cam.placeId"
             [placeName]="cam.placeName"
+            [clusterId]="cam.clusterId ?? ''"
             [clusterName]="cam.clusterName"
             (flight)="onPhotoFlight($event)"
             (done)="onCheckinDone($event)"
             (closed)="onCameraClosed($event)"
+          />
+        }
+
+        @if (notificationsOpen()) {
+          <app-notifications
+            [tripId]="t.id"
+            [tz]="t.tz"
+            (unreadChange)="unread.set($event)"
+            (enterExpense)="enterExpenseFromBell($event)"
+            (closed)="closeNotifications()"
           />
         }
 
@@ -286,7 +306,7 @@
           <app-expense-entry-sheet
             [tripId]="t.id"
             [target]="target"
-            (saved)="onExpenseSaved()"
+            (saved)="onExpenseSaved($event)"
             (closed)="closeExpenseEntry()"
           />
         }

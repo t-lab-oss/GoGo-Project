@@ -9,6 +9,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -40,6 +41,11 @@ import { SwipeDirective } from './swipe.directive';
 import { ExpenseEntrySheetComponent, type ExpenseTarget } from './expense/expense-entry-sheet.component';
 import { ExpenseListSheetComponent } from './expense/expense-list-sheet.component';
 import { AlbumComponent } from './album/album.component';
+import { NotificationsComponent } from './notifications/notifications.component';
+import { isNetworkError } from '../../core/offline/network';
+import { OutboxService } from '../../core/offline/outbox.service';
+import { OfflineBannerComponent } from './offline/offline-banner.component';
+import { pendingReminder, queuedMomentModel, queuedSpent, withQueuedCheckins } from './offline/offline.logic';
 import { AuthService } from '../../core/auth/auth.service';
 import { OutsideTripDaysError, TripModeData, TripModeService } from './trip-mode.service';
 
@@ -49,7 +55,7 @@ const CARD_GAP = 12;
 
 @Component({
   selector: 'app-trip-mode',
-  imports: [RouterLink, PlaceCardComponent, PlaceSheetComponent, CameraComponent, SwipeDirective, ExpenseEntrySheetComponent, ExpenseListSheetComponent, AlbumComponent],
+  imports: [RouterLink, PlaceCardComponent, PlaceSheetComponent, CameraComponent, SwipeDirective, ExpenseEntrySheetComponent, ExpenseListSheetComponent, AlbumComponent, NotificationsComponent, OfflineBannerComponent],
   templateUrl: './trip-mode.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -105,20 +111,52 @@ export class TripModeComponent {
   /** Đã bỏ qua trong lần mở app này: lần mở sau mới nhắc lại. */
   private readonly dismissed = signal<readonly string[]>([]);
   protected readonly reminder = computed(() => {
-    const c = this.pending();
+    const trip = this.trip();
+    const c = trip ? pendingReminder(this.pending(), this.queued(), trip.tz) : null;
     return c && !this.dismissed().includes(c.id) ? c : null;
   });
   protected readonly expenseListOpen = signal(false);
   protected readonly expenseTarget = signal<ExpenseTarget | null>(null);
-  /** Sửa một khoản từ danh sách thì lưu xong quay lại danh sách. */
-  private backToList = false;
+  /** Mở bàn phím số từ danh sách hay từ chuông thì đóng xong quay lại đó. */
+  private expenseReturnTo: 'list' | 'notifications' | null = null;
+  protected readonly notificationsOpen = signal(false);
+  protected readonly unread = signal(0);
   private expenseOpener: HTMLElement | null = null;
 
   /** Vị trí thiết bị để tính khoảng cách. Từ chối hoặc lỗi thì giữ null và ẩn khoảng cách. */
   private readonly position = signal<{ lat: number; lng: number } | null>(null);
 
   protected readonly trip = computed(() => this.data()?.trip ?? null);
-  protected readonly clusters = computed(() => sortClusters(this.data()?.clusters ?? []));
+  private readonly outbox = inject(OutboxService);
+  /** Việc chờ gửi của chuyến đang xem. */
+  private readonly queued = computed(() => {
+    const id = this.trip()?.id;
+    return this.outbox.items().filter((i) => i.tripId === id);
+  });
+  protected readonly clusters = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    return sortClusters(withQueuedCheckins(d.clusters, this.queued(), d.date, d.trip.tz));
+  });
+  /** Link tạm của ảnh đang chờ gửi, theo seq trong hàng đợi. */
+  private readonly queuedUrls = new Map<number, string>();
+  private readonly queuedMoments = computed(() => {
+    const tz = this.trip()?.tz;
+    if (!tz) return [];
+    const username = this.auth.user()?.username ?? '';
+    return this.queued().flatMap((item) => {
+      const op = item.op;
+      if ((op.kind !== 'checkin' && op.kind !== 'moment') || !op.photo || !op.momentId) return [];
+      let url = this.queuedUrls.get(item.seq);
+      if (!url) {
+        url = URL.createObjectURL(op.photo.photo);
+        this.queuedUrls.set(item.seq, url);
+      }
+      return [queuedMomentModel(item, op, url, username, tz)];
+    });
+  });
+  /** Ảnh ở ô album: ảnh mới chụp đang chờ gửi được ưu tiên. */
+  protected readonly albumPreview = computed(() => this.queuedMoments().at(-1) ?? this.latestMoment());
   protected readonly selected = computed<Cluster | null>(() => {
     const id = this.selectedClusterId();
     const list = this.clusters();
@@ -132,7 +170,9 @@ export class TripModeComponent {
     const n = dayNumber(d.trip, d.date);
     return `Ngày ${n ?? '?'} / ${d.trip.days.length} · ${formatDayLabel(d.date)}`;
   });
-  protected readonly totalSpent = computed(() => formatVnd(this.trip()?.totalSpent ?? 0));
+  protected readonly totalSpent = computed(() =>
+    formatVnd((this.trip()?.totalSpent ?? 0) + queuedSpent(this.queued())),
+  );
 
   protected readonly formatRange = clusterRange;
 
@@ -159,6 +199,24 @@ export class TripModeComponent {
   }
 
   constructor() {
+    // Có mục vừa gửi xong thì tải lại dữ liệu thật.
+    let synced = this.outbox.syncedCount();
+    effect(() => {
+      const count = this.outbox.syncedCount();
+      if (count === synced) return;
+      synced = count;
+      untracked(() => this.refresh());
+    });
+    // Gỡ link tạm của ảnh đã gửi xong.
+    effect(() => {
+      const alive = new Set(this.outbox.items().map((i) => i.seq));
+      for (const [seq, url] of this.queuedUrls) {
+        if (alive.has(seq)) continue;
+        URL.revokeObjectURL(url);
+        this.queuedUrls.delete(seq);
+      }
+    });
+    this.destroyRef.onDestroy(() => this.queuedUrls.forEach((url) => URL.revokeObjectURL(url)));
     effect(() => {
       this.places();
       this.status();
@@ -180,15 +238,19 @@ export class TripModeComponent {
           this.dayMoments.set([]);
           this.albumOpen.set(false);
           this.pending.set(null);
+          this.unread.set(0);
+          this.notificationsOpen.set(false);
           this.expenseListOpen.set(false);
           this.expenseTarget.set(null);
           return this.api.load(params.get('id') ?? '').pipe(
             tap((data) => {
+              if (data.fromCache) this.outbox.markOffline();
               this.data.set(data);
               this.status.set('ready');
               this.loadLatestMoment(data.trip.id);
               this.loadDayMoments(data.trip.id, data.date);
               this.loadReminder(data.trip.id);
+              this.loadUnread(data.trip.id);
             }),
             catchError((err: unknown) => {
               this.errorMessage.set(
@@ -329,6 +391,13 @@ export class TripModeComponent {
   protected onCheckinDone(outcome: CheckinOutcome): void {
     const open = this.camera();
     if (!open) return;
+    if (outcome.kind === 'queued') {
+      if (open.mode === 'checkin') this.selectedClusterId.set(open.clusterId);
+      this.flippedPlaceId.set(null);
+      this.dismissCamera();
+      this.showNotice('Đang offline: đã lưu trên máy, sẽ tự gửi khi có mạng.');
+      return;
+    }
     if (outcome.kind === 'moment') {
       this.latestMoment.set(outcome.moment);
       this.dismissCamera();
@@ -391,6 +460,7 @@ export class TripModeComponent {
       });
     this.loadLatestMoment(id);
     this.loadReminder(id);
+    this.loadUnread(id);
   }
 
   private loadReminder(tripId: string): void {
@@ -408,21 +478,49 @@ export class TripModeComponent {
 
   protected skipReminder(checkin: Checkin): void {
     this.dismissed.update((list) => [...list, checkin.id]);
+    // Check-in còn chờ gửi thì lời bỏ qua phải xếp sau nó.
+    if (this.outbox.hasCheckin(checkin.id)) {
+      void this.queueSkip(checkin);
+      return;
+    }
     this.api
       .skipExpenseReminder(checkin.tripId, checkin.id, checkin.expenseReminder.skipCount + 1)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
           if (updated.expenseReminder.movedToBell) {
-            this.showNotice('Không nhắc ở trang chủ nữa. Bạn nhập bù ở "Tổng chi tiêu".');
+            this.showNotice('Đã chuyển lời nhắc vào chuông thông báo.');
             this.loadReminder(updated.tripId);
+            this.loadUnread(updated.tripId);
           }
         },
-        error: () => {
-          this.dismissed.update((list) => list.filter((id) => id !== checkin.id));
-          this.showNotice('Chưa bỏ qua được. Hãy kiểm tra mạng rồi thử lại.');
+        error: (err: unknown) => {
+          if (isNetworkError(err)) {
+            this.outbox.markOffline();
+            void this.queueSkip(checkin);
+            return;
+          }
+          this.skipFailed(checkin);
         },
       });
+  }
+
+  private async queueSkip(checkin: Checkin): Promise<void> {
+    try {
+      await this.outbox.enqueue(checkin.tripId, {
+        kind: 'skip',
+        checkinId: checkin.id,
+        placeLabel: checkin.placeLabel,
+        skipCount: checkin.expenseReminder.skipCount + 1,
+      });
+    } catch {
+      this.skipFailed(checkin);
+    }
+  }
+
+  private skipFailed(checkin: Checkin): void {
+    this.dismissed.update((list) => list.filter((id) => id !== checkin.id));
+    this.showNotice('Chưa bỏ qua được. Hãy kiểm tra mạng rồi thử lại.');
   }
 
   protected onReminderSwipe(direction: SwipeDirection, checkin: Checkin): void {
@@ -432,7 +530,7 @@ export class TripModeComponent {
   protected enterExpense(checkin: Checkin): void {
     const cluster = this.clusters().find((c) => c.id === checkin.clusterId);
     this.rememberExpenseOpener();
-    this.backToList = false;
+    this.expenseReturnTo = null;
     this.expenseTarget.set({
       checkinId: checkin.id,
       placeLabel: checkin.placeLabel,
@@ -448,25 +546,53 @@ export class TripModeComponent {
   }
 
   protected editExpense(target: ExpenseTarget): void {
-    this.backToList = true;
+    this.expenseReturnTo = 'list';
     this.expenseListOpen.set(false);
     this.expenseTarget.set(target);
   }
 
-  protected onExpenseSaved(): void {
+  protected openNotifications(): void {
+    if (!this.trip()) return;
+    this.rememberExpenseOpener();
+    this.notificationsOpen.set(true);
+  }
+
+  protected closeNotifications(): void {
+    this.notificationsOpen.set(false);
+    this.restoreExpenseFocus();
+  }
+
+  protected enterExpenseFromBell(target: ExpenseTarget): void {
+    this.expenseReturnTo = 'notifications';
+    this.notificationsOpen.set(false);
+    this.expenseTarget.set(target);
+  }
+
+  private loadUnread(tripId: string): void {
+    this.api
+      .notifications(tripId, { unread: 'true', limit: 1 })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          if (this.trip()?.id === tripId) this.unread.set(res.unreadCount);
+        },
+        error: () => undefined,
+      });
+  }
+
+  protected onExpenseSaved({ queued }: { queued: boolean }): void {
     this.closeExpenseEntry();
-    this.showNotice('Đã lưu chi tiêu.');
-    this.refresh();
+    this.showNotice(queued ? 'Đã lưu trên máy, sẽ tự gửi khi có mạng.' : 'Đã lưu chi tiêu.');
+    if (!queued) this.refresh();
   }
 
   protected closeExpenseEntry(): void {
     this.expenseTarget.set(null);
-    if (this.backToList) {
-      this.backToList = false;
-      this.expenseListOpen.set(true);
-    } else {
-      this.restoreExpenseFocus();
-    }
+    const back = this.expenseReturnTo;
+    this.expenseReturnTo = null;
+    if (back === 'list') this.expenseListOpen.set(true);
+    else if (back === 'notifications') this.notificationsOpen.set(true);
+    else this.restoreExpenseFocus();
   }
 
   protected closeExpenseList(): void {
@@ -528,7 +654,7 @@ export class TripModeComponent {
   protected checkinPhotoFor(placeId: string): Moment | null {
     const cluster = this.selected();
     const checkin = cluster ? findCheckin(cluster, placeId) : null;
-    return checkin ? checkinMoment(this.dayMoments(), checkin) : null;
+    return checkin ? checkinMoment([...this.queuedMoments(), ...this.dayMoments()], checkin) : null;
   }
 
   /** Ảnh trên thẻ lỗi vì link hết hạn thì xin link mới. */

@@ -1,7 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map, switchMap, timeout } from 'rxjs';
+import { Observable, map, switchMap, timeout, catchError, from, tap, throwError } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
+import { isNetworkError } from '../../core/offline/network';
+import { OfflineDb } from '../../core/offline/offline-db';
+import { offlineData } from './offline/offline.logic';
 import type {
+  Notification,
   Checkin,
   Expense,
   ExpensesByDay,
@@ -20,6 +25,8 @@ import type {
 import { zonedParts } from './trip-mode.logic';
 
 export interface TripModeData {
+  /** true khi lấy từ bản lưu trên máy vì không tới được máy chủ. */
+  fromCache?: boolean;
   trip: Trip;
   /** Ngày đang xem "YYYY-MM-DD" theo múi giờ chuyến, nằm trong khoảng ngày của chuyến. */
   date: string;
@@ -65,14 +72,27 @@ const UPLOAD_TIMEOUT_MS = 60_000;
 @Injectable({ providedIn: 'root' })
 export class TripModeService {
   private readonly http = inject(HttpClient);
+  private readonly offline = inject(OfflineDb);
+  private readonly auth = inject(AuthService);
 
-  /** Chuyến đang đi gần nhất của người dùng (FR-12), hoặc null. */
+  private userId(): string {
+    return this.auth.user()?.id ?? '';
+  }
+
+  /** Chuyến đang đi gần nhất của người dùng (FR-12), hoặc null. Mất mạng thì dùng kết quả lần trước. */
   findOngoingTripId(): Observable<string | null> {
+    const key = `ongoing:${this.userId()}`;
     return this.http
       .get<{ items: TripSummary[] }>('/api/trips', {
         params: { status: 'ongoing', sort: 'startDate', limit: 1 },
       })
-      .pipe(map((res) => res.items[0]?.id ?? null));
+      .pipe(
+        map((res) => res.items[0]?.id ?? null),
+        tap((id) => void this.offline.setCache(key, id)),
+        catchError((err: unknown) =>
+          isNetworkError(err) ? from(this.offline.getCache<string>(key)) : throwError(() => err),
+        ),
+      );
   }
 
   /**
@@ -80,6 +100,23 @@ export class TripModeService {
    * rồi mới lấy cụm của ngày đó (API Contract mục 12).
    */
   load(tripId: string, now: Date = new Date()): Observable<TripModeData> {
+    const key = `trip:${this.userId()}:${tripId}`;
+    return this.fetchTripMode(tripId, now).pipe(
+      tap((data) => void this.offline.setCache(key, data)),
+      catchError((err: unknown) => {
+        if (!isNetworkError(err)) return throwError(() => err);
+        return from(this.offline.getCache<TripModeData>(key)).pipe(
+          map((cached) => {
+            const usable = cached && offlineData(cached, zonedParts(now, cached.trip.tz).date);
+            if (!usable) throw err;
+            return { ...usable, fromCache: true };
+          }),
+        );
+      }),
+    );
+  }
+
+  private fetchTripMode(tripId: string, now: Date): Observable<TripModeData> {
     return this.http.get<{ trip: Trip }>(`/api/trips/${tripId}`).pipe(
       switchMap(({ trip }) => {
         const date = zonedParts(now, trip.tz).date;
@@ -170,6 +207,23 @@ export class TripModeService {
 
   deleteMoment(tripId: string, momentId: string): Observable<unknown> {
     return this.http.delete(`/api/trips/${tripId}/moments/${momentId}`);
+  }
+
+  notifications(tripId: string, params: { unread?: 'true'; limit?: number } = {}) {
+    return this.http.get<{ items: Notification[]; unreadCount: number }>(
+      `/api/trips/${tripId}/notifications`,
+      { params },
+    );
+  }
+
+  markNotificationRead(tripId: string, id: string): Observable<Notification> {
+    return this.http
+      .patch<{ notification: Notification }>(`/api/trips/${tripId}/notifications/${id}`, { read: true })
+      .pipe(map((res) => res.notification));
+  }
+
+  markAllNotificationsRead(tripId: string): Observable<unknown> {
+    return this.http.patch(`/api/trips/${tripId}/notifications`, { read: true }, { params: { unread: 'true' } });
   }
 
   /** Check-in mới nhất chưa nhập tiền và chưa bị chuyển vào chuông (FR-16). */

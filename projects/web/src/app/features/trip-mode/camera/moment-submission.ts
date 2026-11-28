@@ -2,12 +2,13 @@ import { firstValueFrom } from 'rxjs';
 import { newClientId } from 'shared';
 import type { Mood } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
+import type { QueuedMoment } from '../../../core/offline/outbox.types';
 import type { CheckinApi, CheckinOutcome, Location } from './checkin-submission';
 import type { CapturedPhoto } from './photo';
 
 /** Một lần lưu khoảnh khắc (FR-20). ID và ảnh cố định từ lúc chụp nên gửi lại là idempotent. */
 export class MomentSubmission {
-  readonly momentId = newClientId();
+  readonly momentId: string;
   note = '';
   mood: Mood | null = null;
   placeLabel = '';
@@ -22,8 +23,26 @@ export class MomentSubmission {
       takenAt: Date;
       photo: CapturedPhoto;
       location: Promise<Location | null>;
+      /** Có sẵn khi gửi lại từ hàng đợi offline. */
+      momentId?: string;
     },
-  ) {}
+  ) {
+    this.momentId = data.momentId ?? newClientId();
+  }
+
+  async toQueued(): Promise<QueuedMoment> {
+    return {
+      kind: 'moment',
+      momentId: this.momentId,
+      place: this.data.place,
+      takenAt: this.data.takenAt.toISOString(),
+      location: await this.data.location,
+      photo: this.data.photo,
+      note: this.note,
+      mood: this.mood,
+      placeLabel: this.placeLabel,
+    };
+  }
 
   async submit(): Promise<CheckinOutcome> {
     const { tripId, photo, takenAt, place } = this.data;

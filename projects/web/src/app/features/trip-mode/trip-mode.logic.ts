@@ -1,4 +1,4 @@
-import type { Mood, Moment, Checkin, Cluster, PlaceImage, PlaceImageResult, Trip, TripPlace } from 'shared';
+import type { Notification, Mood, Moment, Checkin, Cluster, PlaceImage, PlaceImageResult, Trip, TripPlace } from 'shared';
 
 const WEEKDAYS = [
   'Chủ Nhật',
@@ -267,5 +267,45 @@ export function groupByDay<T extends { dayDate: string }>(items: readonly T[]): 
     else groups.push({ date: item.dayDate, items: [item] });
   }
   return groups;
+}
+
+/** Tiêu đề, nội dung của một thông báo; needsAmount = còn nút "Nhập tiền". */
+export function notificationText(n: Pick<Notification, 'type' | 'payload'>): {
+  title: string;
+  body: string;
+  needsAmount: boolean;
+} {
+  const label = String(n.payload['label'] ?? 'quán');
+  switch (n.type) {
+    case 'expense_skipped': {
+      const amount = n.payload['amount'];
+      return typeof amount === 'number'
+        ? { title: label, body: `Đã nhập ${formatVnd(amount)}.`, needsAmount: false }
+        : {
+            title: `Thêm số tiền cho ${label}`,
+            body: 'Đã bỏ qua 2 lần nên không nhắc ở trang chủ nữa.',
+            needsAmount: true,
+          };
+    }
+    case 'rain':
+      return { title: 'Trời có thể mưa', body: 'Nên chọn những quán có mái hiên.', needsAmount: false };
+    case 'closing_soon':
+      return { title: `${label} sắp đóng cửa`, body: 'Đi sớm kẻo lỡ.', needsAmount: false };
+    case 'closed_early':
+      return { title: `${label} đóng cửa sớm`, body: 'Quán đóng trước khi hết giờ của cụm.', needsAmount: false };
+    case 'closed':
+      return { title: `${label} đã đóng cửa`, body: 'Chọn quán khác trong cụm.', needsAmount: false };
+  }
+}
+
+/** "HH:mm" nếu cùng ngày (theo múi giờ chuyến), "Hôm qua", còn lại "dd/MM". */
+export function relativeTime(iso: string, now: Date, tz: string): string {
+  const then = zonedParts(new Date(iso), tz);
+  const today = zonedParts(now, tz).date;
+  if (then.date === today) return then.time;
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  if (then.date === yesterday) return 'Hôm qua';
+  const [, month, day] = then.date.split('-');
+  return `${day}/${month}`;
 }
 

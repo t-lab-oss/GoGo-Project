@@ -76,6 +76,17 @@ Nạp dữ liệu mẫu:
 npm run seed
 ```
 
+## Thử PWA và offline
+
+Service worker chỉ bật ở bản build, nên `npm start` không mở lại được app khi mất mạng.
+
+```bash
+npm run dev:server   # API
+npm run preview      # build rồi chạy tại http://localhost:4300
+```
+
+Mở http://localhost:4300, đăng nhập, đợi khoảng 10 giây cho service worker lưu giao diện, rồi tắt mạng. Check-in, ảnh, khoảnh khắc và chi tiêu được lưu trên máy và tự gửi khi có mạng. Cài app lên điện thoại cần chạy qua HTTPS.
+
 ## Các lệnh thường dùng
 
 | Lệnh | Tác dụng |
@@ -90,6 +101,7 @@ npm run seed
 | `npm run test:web` | Chạy test frontend một lần |
 | `npm run test:server` | Chạy test server |
 | `npm run seed` | Nạp dữ liệu mẫu |
+| `npm run preview` | Build rồi chạy thử bản có service worker ở cổng 4300 |
 
 ## Tài liệu
 

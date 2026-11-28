@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { isObjectId } from '../../../../projects/shared/src/public-api';
 import { AppError } from '../../lib/app-error';
+import { now } from '../../lib/clock';
 import { dateIn } from '../../lib/trip-dates';
 import { toMoment } from '../moments/moment.dto';
 import { MomentModel, type MomentDoc } from '../moments/moment.model';
@@ -300,6 +301,12 @@ checkinsRouter.put('/:checkinId/expense', async (req, res) => {
     return upsert();
   });
   const saved = (await ExpenseModel.findOne({ checkinId: checkin._id }).lean<StoredExpense>())!;
+  // Đã có số tiền thì lời nhắc của mọi người về check-in này coi như xong.
+  const reminderFilter = { tripId: trip._id, type: 'expense_skipped' as const, refId: checkin._id };
+  await Promise.all([
+    NotificationModel.updateMany(reminderFilter, { $set: { 'payload.amount': body.amount } }),
+    NotificationModel.updateMany({ ...reminderFilter, readAt: null }, { readAt: now() }),
+  ]);
   res.status(result.upsertedCount ? 201 : 200).json({ expense: toExpenseDto(saved) });
 });
 
@@ -313,6 +320,10 @@ checkinsRouter.get('/:checkinId/expense', async (req, res) => {
 checkinsRouter.delete('/:checkinId/expense', async (req, res) => {
   const checkin = await loadCheckin(req.trip!, paramOf(req.params, 'checkinId'));
   await ExpenseModel.deleteOne({ checkinId: checkin._id });
+  await NotificationModel.updateMany(
+    { tripId: req.trip!._id, type: 'expense_skipped', refId: checkin._id },
+    { $unset: { 'payload.amount': 1 } },
+  );
   res.status(204).end();
 });
 
