@@ -1,10 +1,14 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { toApiError } from '../../core/api/api-error';
 import { AuthService } from '../../core/auth/auth.service';
+import { AvatarComponent } from '../../ui/avatar.component';
+import { avatarFromFile } from '../trip-mode/camera/photo';
 
 @Component({
   selector: 'app-account',
-  imports: [RouterLink],
+  imports: [RouterLink, AvatarComponent],
   templateUrl: './account.component.html',
 })
 export class AccountComponent {
@@ -12,10 +16,47 @@ export class AccountComponent {
   private readonly router = inject(Router);
 
   readonly user = this.auth.user;
-  readonly initial = computed(() => (this.user()?.username ?? '').charAt(0).toUpperCase());
+  readonly avatarSaving = signal(false);
+  readonly avatarError = signal('');
   readonly copied = signal(false);
   readonly copyFailed = signal(false);
   readonly loggingOut = signal(false);
+
+  async onAvatarFile(event: Event): Promise<void> {
+    const field = event.target as HTMLInputElement;
+    const file = field.files?.[0];
+    // Xoá giá trị để chọn lại đúng ảnh đó vẫn nhận được.
+    field.value = '';
+    if (!file || this.avatarSaving()) return;
+    this.avatarSaving.set(true);
+    this.avatarError.set('');
+    let image: string;
+    try {
+      image = await avatarFromFile(file);
+    } catch {
+      this.avatarError.set('Không đọc được ảnh này, hãy chọn ảnh khác.');
+      this.avatarSaving.set(false);
+      return;
+    }
+    await this.saveAvatar(image);
+  }
+
+  async removeAvatar(): Promise<void> {
+    if (this.avatarSaving()) return;
+    this.avatarSaving.set(true);
+    this.avatarError.set('');
+    await this.saveAvatar(null);
+  }
+
+  private async saveAvatar(image: string | null): Promise<void> {
+    try {
+      await firstValueFrom(this.auth.setAvatar(image));
+    } catch (err) {
+      this.avatarError.set(toApiError(err).message);
+    } finally {
+      this.avatarSaving.set(false);
+    }
+  }
 
   async copyId(): Promise<void> {
     const id = this.user()?.publicId;

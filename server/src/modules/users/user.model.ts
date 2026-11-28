@@ -13,6 +13,7 @@ const userSchema = new Schema(
     },
     passwordHash: { type: String, required: true },
     publicId: { type: String, required: true, unique: true },
+    avatar: { type: String },
     lastLoginAt: { type: Date },
   },
   { timestamps: true },
@@ -22,5 +23,10 @@ export type UserDoc = InferSchemaType<typeof userSchema> & { _id: { toString(): 
 export const UserModel = model('User', userSchema, 'users');
 
 export function toUserDto(doc: UserDoc): User {
-  return { id: doc._id.toString(), username: doc.username, publicId: doc.publicId };
+  return {
+    id: doc._id.toString(),
+    username: doc.username,
+    publicId: doc.publicId,
+    avatarUrl: doc.avatar ?? null,
+  };
 }

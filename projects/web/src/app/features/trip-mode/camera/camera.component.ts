@@ -32,6 +32,9 @@ import { CapturedPhoto, encodePhoto, grabSquare, squareFromFile } from './photo'
 type CameraState = 'starting' | 'live' | 'unavailable' | 'processing' | 'review' | 'sending' | 'failed';
 type Facing = 'environment' | 'user';
 
+/** Hai lần chạm cách nhau không quá quãng này (ms) thì tính là chạm đúp. */
+const DOUBLE_TAP_MS = 350;
+
 export interface PhotoFlight {
   blob: Blob;
   from: DOMRect;
@@ -113,6 +116,7 @@ export class CameraComponent {
   );
 
   private facing: Facing = 'environment';
+  private lastTapAt = -Infinity;
   private stream: MediaStream | null = null;
   private cameraToken = 0;
   private destroyed = false;
@@ -183,6 +187,13 @@ export class CameraComponent {
     if (this.state() !== 'live') return;
     this.facing = this.facing === 'environment' ? 'user' : 'environment';
     void this.startCamera();
+  }
+
+  /** Chạm hai lần vào khung ngắm để đổi camera. Tự đếm vì iOS không phát "dblclick" đều đặn. */
+  protected onViewfinderTap(event: Event): void {
+    const isDouble = event.timeStamp - this.lastTapAt <= DOUBLE_TAP_MS;
+    this.lastTapAt = isDouble ? -Infinity : event.timeStamp;
+    if (isDouble) this.flip();
   }
 
   protected capture(): void {
@@ -382,7 +393,7 @@ export class CameraComponent {
   }
 
   /**
-   * Màn ngắm: lướt ngang đổi camera, lên mở thư viện, xuống đóng.
+   * Màn ngắm: lướt lên mở thư viện, xuống đóng (đổi camera thì chạm hai lần, xem onViewfinderTap).
    * Màn xem lại: lướt ngang đổi Mô tả / Đánh giá, lên đăng, xuống chụp lại.
    */
   protected onSwipe(direction: SwipeDirection): void {
@@ -396,7 +407,7 @@ export class CameraComponent {
     if (direction === 'down') this.close();
     else if (direction === 'up') {
       if (this.capturing()) this.libraryInput().nativeElement.click();
-    } else this.flip();
+    }
   }
 
   protected onCaptionInput(event: Event): void {

@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, Injector, afterNextRender, computed, inject, isDevMode, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { newClientId, type Checkin, type Cluster, type Trip, type TripPlace } from 'shared';
+import type { Checkin, Cluster, Trip, TripPlace } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { TripsApi } from '../../../core/api/trips.api';
 import {
@@ -12,7 +12,6 @@ import {
   getDevDayOffset,
   gradientCss,
   gradientFor,
-  nowLocal,
   setDevDayOffset,
   todayLocal,
 } from '../../../core/format';
@@ -20,7 +19,7 @@ import { BackLinkComponent } from '../../../ui/back-link.component';
 import { BottomSheetComponent } from '../../../ui/bottom-sheet.component';
 import { PlaceSheetComponent } from '../../trip-mode/place-sheet/place-sheet.component';
 
-/** Quán trong một cụm: thêm, sửa, xoá và đánh dấu đã ghé theo ngày. */
+/** Quán trong một cụm: thêm, sửa, xoá và xem quán nào đã ghé. Check-in làm ở Trip Mode. */
 @Component({
   selector: 'app-cluster-detail',
   imports: [
@@ -49,17 +48,16 @@ export class ClusterDetailComponent {
   readonly cluster = computed(() => this.clusters().find((c) => c.id === this.clusterId()) ?? null);
   readonly places = computed<TripPlace[]>(() => this.cluster()?.places ?? []);
 
-  // Check-in theo thời gian thực: quán là kho chung của cụm, bấm "Đã ghé" thì ghi vào ngày và giờ hiện tại.
+  // Quán là kho chung của cụm, check-in gắn với ngày ghé.
   /** Hôm nay nếu nằm trong khoảng ngày của chuyến, ngược lại rỗng. */
   readonly selectedDate = signal('');
   readonly checkins = signal<Checkin[]>([]);
-  readonly busyPlaceId = signal('');
   readonly canCheckin = computed(() => this.selectedDate() !== '');
   readonly checkinHint = computed(() => {
     const t = this.trip();
     if (!t) return '';
     return todayLocal() < t.startDate
-      ? `Chuyến bắt đầu ngày ${formatDM(t.startDate)}. Đến ngày đó bạn sẽ bấm “Đã ghé” ở quán nào thì quán đó được ghi vào ngày hôm đó.`
+      ? `Chuyến bắt đầu ngày ${formatDM(t.startDate)}. Đến ngày đó bạn check-in quán trong Trip Mode.`
       : 'Chuyến đã kết thúc nên không check-in thêm được.';
   });
 
@@ -203,25 +201,6 @@ export class ClusterDetailComponent {
   lastCheckin(place: TripPlace): Checkin | undefined {
     const list = this.todaysCheckins(place);
     return list[list.length - 1];
-  }
-
-  /** Check-in: ID do client sinh nên gửi lại không tạo trùng. */
-  checkIn(place: TripPlace): void {
-    if (!this.canCheckin()) return;
-    // Server tự tính ngày từ thời điểm này theo múi giờ của chuyến.
-    const takenAt = nowLocal().toISOString();
-    this.busyPlaceId.set(place.id);
-    this.actionError.set('');
-    this.api.putCheckin(this.tripId, newClientId(), place.id, takenAt).subscribe({
-      next: (checkin) => {
-        this.checkins.update((list) => [...list, checkin]);
-        this.busyPlaceId.set('');
-      },
-      error: (err) => {
-        this.busyPlaceId.set('');
-        this.actionError.set(toApiError(err).message);
-      },
-    });
   }
 
   openSheet(place: TripPlace | null): void {

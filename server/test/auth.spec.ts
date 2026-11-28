@@ -39,6 +39,44 @@ beforeEach(async () => {
   });
 });
 
+describe('ảnh đại diện /api/users/me/avatar', () => {
+  const image = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+  const signIn = async () => {
+    const res = await request(app).post('/api/sessions').send({ username: 'hany', password: PASSWORD });
+    return { Authorization: `Bearer ${res.body.accessToken as string}` };
+  };
+
+  it('thêm ảnh rồi gỡ ảnh', async () => {
+    const auth = await signIn();
+    const put = await request(app).put('/api/users/me/avatar').set(auth).send({ image });
+    expect(put.status).toBe(200);
+    expect(put.body.user.avatarUrl).toBe(image);
+    expect((await request(app).get('/api/users/me').set(auth)).body.user.avatarUrl).toBe(image);
+
+    const del = await request(app).delete('/api/users/me/avatar').set(auth);
+    expect(del.status).toBe(200);
+    expect(del.body.user.avatarUrl).toBeNull();
+  });
+
+  it('không nhận ảnh sai loại, link ngoài hoặc quá lớn', async () => {
+    const auth = await signIn();
+    for (const bad of [
+      'https://example.com/a.jpg',
+      'data:image/svg+xml;base64,PHN2Zz4=',
+      `data:image/jpeg;base64,/9j/${'A'.repeat(150_000)}`,
+    ]) {
+      const res = await request(app).put('/api/users/me/avatar').set(auth).send({ image: bad });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    }
+  });
+
+  it('chưa đăng nhập: 401', async () => {
+    const res = await request(app).put('/api/users/me/avatar').send({ image });
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('POST /api/sessions', () => {
   it('đăng nhập đúng: 201, có accessToken và cookie gg_rt httpOnly', async () => {
     const res = await request(app).post('/api/sessions').send({ username: 'hany', password: PASSWORD });

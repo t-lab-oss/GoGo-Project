@@ -5,13 +5,14 @@ import type { Cluster, Trip } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { TripsApi } from '../../../core/api/trips.api';
 import { STATUS_LABEL, formatDM, formatVnd } from '../../../core/format';
+import { AvatarComponent } from '../../../ui/avatar.component';
 import { BackLinkComponent } from '../../../ui/back-link.component';
 import { BottomSheetComponent } from '../../../ui/bottom-sheet.component';
 
 /** Trang "Chuẩn bị chuyến": thông tin chuyến, thành viên và các cụm quán. */
 @Component({
   selector: 'app-trip-detail',
-  imports: [RouterLink, FormsModule, BackLinkComponent, BottomSheetComponent],
+  imports: [RouterLink, FormsModule, AvatarComponent, BackLinkComponent, BottomSheetComponent],
   templateUrl: './trip-detail.component.html',
 })
 export class TripDetailComponent {
@@ -31,10 +32,6 @@ export class TripDetailComponent {
   readonly statusLabel = STATUS_LABEL;
   readonly formatDM = formatDM;
   readonly formatVnd = formatVnd;
-  readonly initials = computed(() =>
-    (this.trip()?.members ?? []).map((m) => m.username.charAt(0).toUpperCase()),
-  );
-
   readonly memberNames = computed(() =>
     (this.trip()?.members ?? []).map((m) => m.username).join(', '),
   );

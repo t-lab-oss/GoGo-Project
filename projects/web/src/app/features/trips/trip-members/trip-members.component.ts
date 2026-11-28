@@ -5,11 +5,12 @@ import type { Trip } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { TripsApi } from '../../../core/api/trips.api';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AvatarComponent } from '../../../ui/avatar.component';
 import { BackLinkComponent } from '../../../ui/back-link.component';
 
 @Component({
   selector: 'app-trip-members',
-  imports: [FormsModule, BackLinkComponent],
+  imports: [FormsModule, AvatarComponent, BackLinkComponent],
   templateUrl: './trip-members.component.html',
 })
 export class TripMembersComponent {

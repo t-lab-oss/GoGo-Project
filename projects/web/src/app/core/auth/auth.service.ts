@@ -55,6 +55,18 @@ export class AuthService {
     );
   }
 
+  /** Thêm, đổi (data URL JPEG) hoặc gỡ (null) ảnh đại diện của mình. */
+  setAvatar(image: string | null): Observable<User> {
+    const url = '/api/users/me/avatar';
+    const request = image
+      ? this.http.put<{ user: User }>(url, { image })
+      : this.http.delete<{ user: User }>(url);
+    return request.pipe(
+      map((res) => res.user),
+      tap((user) => this.setUser(user)),
+    );
+  }
+
   /** Làm mới access token. Nhiều request 401 cùng lúc chỉ gọi một lần. */
   refresh(): Observable<string> {
     if (!this.refreshing$) {

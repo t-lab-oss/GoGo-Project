@@ -11,12 +11,14 @@ import {
 } from '@angular/core';
 import type { Checkin } from 'shared';
 import { ExpenseSaver } from '../expense/expense-saver';
-import { formatVnd, pressAmountKey, swipeDirection } from '../trip-mode.logic';
+import { formatVnd, pressAmountKey } from '../trip-mode.logic';
 
 /** Kéo sang phải quá quãng này (px) rồi thả thì bỏ qua lời nhắc. */
 const SKIP_DISTANCE = 90;
 /** Chưa quá quãng này thì chưa biết là chạm, cuộn hay kéo. */
 const DRAG_START = 8;
+/** Đầu ngón tay hay đi chéo: lệch dọc quá quãng này mới chắc là cuộn trang. */
+const SCROLL_START = 14;
 /** Thời gian thẻ trượt ra khỏi màn hình, khớp với transition trong template. */
 const LEAVE_MS = 180;
 
@@ -36,7 +38,7 @@ const toDigits = (text: string) => [...text.replace(/\D/g, '')].reduce(pressAmou
   host: {
     // Màn phía sau cũng nghe thao tác lướt ngang: kéo trên thẻ không được đổi cụm.
     'data-noswipe': '',
-    class: 'block touch-pan-y touch-pinch-zoom',
+    class: 'block',
     '(pointerdown)': 'onPointerDown($event)',
     '(pointermove)': 'onPointerMove($event)',
     '(pointerup)': 'onPointerUp($event)',
@@ -80,7 +82,15 @@ export class ExpenseReminderComponent {
   private leaveTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.leaveTimer));
+    // Đang kéo thẻ thì không cho trang cuộn theo. Phải đăng ký passive: false mới chặn được.
+    const holdPage = (event: Event) => {
+      if (this.dragging() && event.cancelable) event.preventDefault();
+    };
+    this.host.addEventListener('touchmove', holdPage, { passive: false });
+    inject(DestroyRef).onDestroy(() => {
+      clearTimeout(this.leaveTimer);
+      this.host.removeEventListener('touchmove', holdPage);
+    });
   }
 
   protected onInput(event: Event): void {
@@ -123,8 +133,9 @@ export class ExpenseReminderComponent {
     this.origin = null;
     this.touched.set(true);
     if (!event.isPrimary || this.saving() || this.leaving()) return;
-    // Kéo trong ô nhập là để chọn chữ.
-    if ((event.target as Element).closest('input')) return;
+    // Ô đang gõ thì kéo là để chọn chữ; chưa chọn ô thì vẫn lướt thẻ từ đó được.
+    const field = (event.target as Element).closest('input');
+    if (field && field === document.activeElement) return;
     this.origin = { x: event.clientX, y: event.clientY, id: event.pointerId };
   }
 
@@ -133,10 +144,10 @@ export class ExpenseReminderComponent {
     if (!from || from.id !== event.pointerId) return;
     const dx = event.clientX - from.x;
     if (!this.dragging()) {
-      const direction = swipeDirection(dx, event.clientY - from.y, DRAG_START, DRAG_START);
-      if (!direction) return;
-      if (direction !== 'right') {
-        this.origin = null;
+      const dy = Math.abs(event.clientY - from.y);
+      if (dx < DRAG_START || dx <= dy) {
+        // Rõ ràng là cuộn dọc hoặc lướt trái thì thôi theo dõi, còn lại chờ thêm.
+        if ((dy >= SCROLL_START && dy > Math.abs(dx)) || (dx <= -DRAG_START && -dx > dy)) this.origin = null;
         return;
       }
       this.dragging.set(true);

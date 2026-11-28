@@ -15,6 +15,8 @@ export interface User {
   id: string;
   username: string;
   publicId: string;
+  /** Ảnh đại diện dạng data URL (JPEG nhỏ). Không có thì giao diện hiện chữ cái đầu. */
+  avatarUrl?: string | null;
 }
 
 /** Phản hồi của POST /sessions (API Contract mục 4). */

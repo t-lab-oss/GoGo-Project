@@ -2,6 +2,9 @@
 
 export const PHOTO_SIDE = 1080;
 export const THUMB_SIDE = 360;
+export const AVATAR_SIDE = 256;
+/** Dung lượng JPEG tối đa của ảnh đại diện: đổi sang base64 vẫn dưới giới hạn của server. */
+export const MAX_AVATAR_BYTES = 90 * 1000;
 export const MAX_PHOTO_BYTES = 2 * 1000 * 1000;
 export const MAX_THUMB_BYTES = 200 * 1000;
 const QUALITIES = [0.85, 0.75, 0.65, 0.55, 0.45];
@@ -107,4 +110,16 @@ export async function squareFromFile(file: Blob): Promise<HTMLCanvasElement> {
   } finally {
     bitmap.close();
   }
+}
+
+/** Ảnh chọn từ máy thành ảnh đại diện: cắt vuông, thu nhỏ, trả về data URL JPEG. */
+export async function avatarFromFile(file: Blob): Promise<string> {
+  const base = await squareFromFile(file);
+  const { blob } = await compressUnder(encoderFor(base), outputSide(base.width, AVATAR_SIDE), MAX_AVATAR_BYTES);
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('ENCODE_FAILED'));
+    reader.readAsDataURL(blob);
+  });
 }

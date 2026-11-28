@@ -45,6 +45,7 @@ users ──< refreshTokens
 | `username` | string | Chữ thường, `^[a-z0-9_.]{3,20}$`, **unique**. Báo trùng ngay khi gõ |
 | `passwordHash` | string | bcrypt (bcryptjs, 10 vòng) |
 | `publicId` | string | ID riêng hiện sau đăng ký, ví dụ `GG-7K3F9Q`. **Unique**. Chữ cái in hoa và số, bỏ các ký tự dễ nhầm (0, O, 1, I, L) |
+| `avatar` | string, tuỳ chọn | Ảnh đại diện dạng data URL JPEG 256×256, tối đa 150.000 ký tự. Không có thì giao diện hiện chữ cái đầu |
 | `lastLoginAt` | Date? | |
 | `createdAt`, `updatedAt` | Date | |
 

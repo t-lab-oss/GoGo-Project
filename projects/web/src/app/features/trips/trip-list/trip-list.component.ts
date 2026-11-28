@@ -6,6 +6,7 @@ import { TripsApi } from '../../../core/api/trips.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { STATUS_LABEL, formatDM, gradientFor } from '../../../core/format';
 import { TripModeService } from '../../trip-mode/trip-mode.service';
+import { AvatarComponent } from '../../../ui/avatar.component';
 
 interface Group {
   status: TripStatus;
@@ -19,7 +20,7 @@ interface Group {
  */
 @Component({
   selector: 'app-trip-list',
-  imports: [RouterLink],
+  imports: [RouterLink, AvatarComponent],
   templateUrl: './trip-list.component.html',
 })
 export class TripListComponent {
@@ -29,7 +30,7 @@ export class TripListComponent {
   private readonly api = inject(TripsApi);
 
   readonly username = computed(() => this.auth.user()?.username ?? '');
-  readonly initial = computed(() => this.username().charAt(0).toUpperCase());
+  readonly avatarUrl = computed(() => this.auth.user()?.avatarUrl ?? null);
 
   readonly trips = signal<TripSummary[] | null>(null);
   readonly error = signal('');

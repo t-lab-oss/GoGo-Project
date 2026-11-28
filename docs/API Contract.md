@@ -78,7 +78,8 @@ Lỗi kiểm tra dữ liệu: `details` là mảng `[{ "field": "endDate", "mess
 
 ```jsonc
 // User
-{ "id": "…", "username": "tien", "publicId": "GG-7K3F9Q" }
+{ "id": "…", "username": "tien", "publicId": "GG-7K3F9Q",
+  "avatarUrl": null }               // data URL JPEG, null thì hiện chữ cái đầu
 
 // TripSummary
 { "id": "…", "name": "Đà Lạt 3N2Đ", "destination": "Đà Lạt",
@@ -157,6 +158,8 @@ URL ảnh (`photoUrl`, `thumbUrl`) là signed URL có hạn khoảng 1 giờ. H�
 | `GET /usernames/:username` | Không cần đăng nhập. → `200 { "username": "tien", "available": false, "suggestions": ["tien1", "tien.gg", "tien_88"] }`. `suggestions` chỉ có khi `available = false`. Sai định dạng → `400` |
 | `POST /users` | Đăng ký. Body `{ "username", "password" }` (username `^[a-z0-9_.]{3,20}$`, mật khẩu 8 đến 72 ký tự). → `201 { "user": User, "accessToken", "expiresIn": 900 }` + cookie `gg_rt` (đăng ký xong đăng nhập luôn). Lỗi: `409 USERNAME_TAKEN` (kèm `suggestions`) |
 | `GET /users/me` | → `200 { "user": User }`. Trang Tài khoản hiện và sao chép `publicId` |
+| `PUT /users/me/avatar` | `{ "image": "data:image/jpeg;base64,…" }` (tối đa 150.000 ký tự) → `200 { "user": User }`. Thêm hoặc đổi ảnh đại diện |
+| `DELETE /users/me/avatar` | → `200 { "user": User }`. Gỡ ảnh đại diện |
 | `POST /sessions` | Đăng nhập. Body như đăng ký. → `201 { user, accessToken, expiresIn }` + cookie. Lỗi: `401 INVALID_CREDENTIALS` (không nói sai ở tên hay mật khẩu) |
 | `PUT /sessions/current` | Làm mới phiên (dùng cookie, không có body). → `200 { accessToken, expiresIn }` + cookie mới. Dùng lại token cũ thì thu hồi cả chuỗi. Lỗi: `401 REFRESH_INVALID` |
 | `DELETE /sessions/current` | Đăng xuất. → `204`, xoá cookie, thu hồi chuỗi token |

@@ -127,8 +127,15 @@ describe('thẻ nhắc nhập tiền', () => {
     expect(behind()).toBe('Bỏ qua');
   });
 
-  it('kéo trong ô nhập là chọn chữ, không bỏ qua', fakeAsync(() => {
+  it('chưa chọn ô nhập thì lướt từ ô đó vẫn bỏ qua', fakeAsync(() => {
     const s = setup();
+    s.drag(140, 0, s.input);
+    expect(s.skips()).toBe(1);
+  }));
+
+  it('đang gõ trong ô nhập thì kéo là chọn chữ, không bỏ qua', fakeAsync(() => {
+    const s = setup();
+    s.input.focus();
     s.drag(140, 0, s.input);
     expect(s.skips()).toBe(0);
   }));

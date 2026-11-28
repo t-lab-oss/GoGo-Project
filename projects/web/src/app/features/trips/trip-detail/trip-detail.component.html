@@ -65,12 +65,13 @@
         class="card group flex items-center gap-3 border border-line px-4 py-3 no-underline transition duration-200 hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_8px_20px_rgba(23,112,159,0.16)] active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
       >
         <span class="flex flex-none pl-2">
-          @for (letter of initials(); track $index) {
-            <span
-              class="-ml-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white text-[13px] font-bold"
+          @for (m of t.members; track m.id) {
+            <app-avatar
+              class="-ml-2 h-9 w-9 border-2 border-white text-[13px]"
               [class]="$even ? 'bg-brand-soft text-brand' : 'bg-accent-soft text-danger'"
-              >{{ letter }}</span
-            >
+              [name]="m.username"
+              [src]="m.avatarUrl"
+            />
           }
         </span>
         <span class="min-w-0 flex-1">
@@ -186,7 +187,7 @@
         />
       </div>
       <div class="flex gap-3">
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
           <label class="field-label" for="cluster-from">Từ</label>
           <input
             id="cluster-from"
@@ -196,7 +197,7 @@
             [(ngModel)]="newCluster.startTime"
           />
         </div>
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
           <label class="field-label" for="cluster-to">Đến</label>
           <input
             id="cluster-to"

@@ -3,12 +3,8 @@
     <span class="text-[26px] font-extrabold tracking-[-0.5px] text-brand">
       Go!<span class="text-accent">Go!</span>
     </span>
-    <a
-      routerLink="/account"
-      class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-[15px] font-bold text-brand"
-      [attr.aria-label]="'Tài khoản của ' + username()"
-    >
-      {{ initial() }}
+    <a routerLink="/account" class="flex rounded-full no-underline" [attr.aria-label]="'Tài khoản của ' + username()">
+      <app-avatar class="h-11 w-11 bg-brand-soft text-[15px] text-brand" [name]="username()" [src]="avatarUrl()" />
     </a>
   </header>
 
