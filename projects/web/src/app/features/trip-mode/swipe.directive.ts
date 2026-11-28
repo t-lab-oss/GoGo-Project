@@ -23,7 +23,7 @@ export class SwipeDirective {
   readonly appSwipe = output<SwipeDirection>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-  private origin: { x: number; y: number; id: number } | null = null;
+  private origin: { x: number; y: number; id: number; horizontalOnly: boolean } | null = null;
   private swallow = false;
 
   constructor() {
@@ -44,9 +44,12 @@ export class SwipeDirective {
     this.origin = null;
     this.swallow = false;
     if (!event.isPrimary) return;
-    const ignored = (event.target as Element).closest(IGNORE);
+    let ignored = (event.target as Element).closest(IGNORE);
+    // Ô có data-swipe-x chưa được chọn thì vẫn lướt ngang qua được; đang gõ thì để yên cho con trỏ.
+    const horizontalOnly = !!ignored?.matches('[data-swipe-x]') && ignored !== document.activeElement;
+    if (horizontalOnly) ignored = ignored!.parentElement?.closest(IGNORE) ?? null;
     if (ignored && ignored !== this.host && this.host.contains(ignored)) return;
-    this.origin = { x: event.clientX, y: event.clientY, id: event.pointerId };
+    this.origin = { x: event.clientX, y: event.clientY, id: event.pointerId, horizontalOnly };
   }
 
   protected end(event: PointerEvent): void {
@@ -59,7 +62,7 @@ export class SwipeDirective {
       this.swipeMinX(),
       this.swipeMinY(),
     );
-    if (!dir) return;
+    if (!dir || (from.horizontalOnly && (dir === 'up' || dir === 'down'))) return;
     this.swallow = true;
     setTimeout(() => (this.swallow = false), 50);
     this.appSwipe.emit(dir);

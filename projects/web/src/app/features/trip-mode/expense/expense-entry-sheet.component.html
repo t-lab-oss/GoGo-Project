@@ -9,7 +9,7 @@
     (keydown)="onKeydown($event)"
   >
     <!-- Lướt phần đầu xuống để đóng. -->
-    <div class="touch-none select-none" appSwipe (appSwipe)="$event === 'down' && close()">
+    <div class="touch-pinch-zoom select-none" appSwipe (appSwipe)="$event === 'down' && close()">
       <div class="flex justify-center pt-2.5" aria-hidden="true"><span class="h-1.5 w-11 rounded-full bg-line"></span></div>
       <header class="flex items-center justify-between gap-3 pt-1.5">
         <span class="w-11 flex-none" aria-hidden="true"></span>
@@ -26,7 +26,7 @@
     </div>
 
     <!-- Lướt sang trái trên số tiền để xoá một chữ số. -->
-    <div class="touch-none select-none py-5 text-center" appSwipe (appSwipe)="$event === 'left' && press('⌫')">
+    <div class="touch-pinch-zoom select-none py-5 text-center" appSwipe (appSwipe)="$event === 'left' && press('⌫')">
       <p class="m-0" aria-live="polite">
         <span class="text-[52px] font-extrabold leading-none tracking-[-2px]" [class.text-muted]="!digits()">{{ amountText() }}</span>
         <span class="text-2xl text-muted"> đ</span>

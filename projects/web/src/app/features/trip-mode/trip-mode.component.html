@@ -1,5 +1,5 @@
 <main
-  class="flex min-h-dvh touch-pan-y flex-col gap-3.5 overflow-hidden px-5 pb-6 pt-5"
+  class="flex min-h-dvh touch-pan-y touch-pinch-zoom flex-col gap-3.5 overflow-hidden px-5 pb-6 pt-5"
   appSwipe
   (appSwipe)="onPageSwipe($event)"
 >
@@ -145,7 +145,7 @@
               @for (p of places(); track p.id; let i = $index) {
                 <div
                   data-card
-                  class="flex-none snap-center snap-always touch-pan-x will-change-transform"
+                  class="flex-none snap-center snap-always touch-pan-x touch-pinch-zoom will-change-transform"
                   appSwipe
                   [swipeMinY]="44"
                   (appSwipe)="onCardSwipe($event, p.id, i)"
@@ -186,62 +186,66 @@
           }
         }
 
-        <div class="flex-1"></div>
-        <div class="mt-8 grid grid-cols-[1fr_auto_1fr] items-end rounded-[28px] bg-white px-6 pb-3 pt-4 shadow-[0_10px_30px_rgba(11,47,74,0.1)]">
-          <button
-            type="button"
-            class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-start border-0 bg-transparent p-0 text-muted"
-            aria-label="Thêm quán vào cụm đang xem"
-            (click)="openSheet(null)"
-          >
-            <span class="flex h-12 w-12 items-center justify-center rounded-[14px] bg-brand-soft text-brand" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
-                <path d="M12 7.5v5M9.5 10h5" />
-              </svg>
-            </span>
-            <span class="text-xs font-semibold">Thêm quán</span>
-          </button>
-
-          <div class="flex flex-col items-center gap-1.5">
+        <!-- Chừa chỗ để nội dung cuối trang không nằm dưới thanh thao tác. -->
+        <div class="h-32 flex-none" aria-hidden="true"></div>
+        <!-- Thanh thao tác ghim ở đáy màn hình; vùng hai bên vẫn bấm xuyên qua được. -->
+        <div class="pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[430px] px-5 pb-4">
+          <div class="pointer-events-auto grid grid-cols-[1fr_auto_1fr] items-end rounded-[28px] bg-white px-6 pb-3 pt-4 shadow-[0_10px_30px_rgba(11,47,74,0.1)]">
             <button
               type="button"
-              class="relative -mt-12 flex h-[92px] w-[92px] cursor-pointer items-center justify-center rounded-full border-0 p-1 shadow-[0_12px_24px_rgba(23,112,159,0.35)] transition-transform active:scale-95 motion-reduce:transition-none"
-              style="background: conic-gradient(from 210deg, #ff7bac, #17709f, #ff7bac)"
-              aria-label="Lưu khoảnh khắc"
-              (click)="openMomentCamera()"
+              class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-start border-0 bg-transparent p-0 text-muted"
+              aria-label="Thêm quán vào cụm đang xem"
+              (click)="openSheet(null)"
             >
-              <span class="absolute inset-0 animate-ping rounded-full bg-accent/25 motion-reduce:hidden" aria-hidden="true"></span>
-              <span class="relative flex h-full w-full items-center justify-center rounded-full bg-white">
-                <span class="flex h-[66px] w-[66px] items-center justify-center rounded-full bg-brand text-white">
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-                    <circle cx="12" cy="13" r="3.5" />
-                  </svg>
-                </span>
+              <span class="flex h-12 w-12 items-center justify-center rounded-[14px] bg-brand-soft text-brand" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
+                  <path d="M12 7.5v5M9.5 10h5" />
+                </svg>
               </span>
+              <span class="text-xs font-semibold">Thêm quán</span>
             </button>
-            <span class="text-xs font-bold text-ink" aria-hidden="true">Lưu khoảnh khắc</span>
-          </div>
 
-          <button
-            type="button"
-            class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-end border-0 bg-transparent p-0 text-muted"
-            aria-label="Mở album chung"
-            (click)="openAlbum()"
-          >
-            <span #albumThumb class="relative block h-12 w-12" aria-hidden="true">
-              <span class="absolute inset-0 -rotate-[9deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #9fd3ee, #0e4f75)"></span>
-              <span class="absolute inset-0 rotate-[7deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffb3cf, #17709f)"></span>
-              <span class="absolute inset-0 rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffd0e1, #3c8fbf)"></span>
-              @if (albumPreview(); as m) {
-                @if (m.thumbUrl) {
-                  <img class="absolute inset-0 h-full w-full rounded-[14px] border-2 border-white object-cover" [src]="m.thumbUrl" alt="" (error)="onAlbumImageError(m)" />
+            <div class="flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                class="relative -mt-12 flex h-[92px] w-[92px] cursor-pointer items-center justify-center rounded-full border-0 p-1 shadow-[0_12px_24px_rgba(23,112,159,0.35)] transition-transform active:scale-95 motion-reduce:transition-none"
+                style="background: conic-gradient(from 210deg, #ff7bac, #17709f, #ff7bac)"
+                aria-label="Lưu khoảnh khắc"
+                (click)="openMomentCamera()"
+              >
+                <span class="absolute inset-0 animate-ping rounded-full bg-accent/25 motion-reduce:hidden" aria-hidden="true"></span>
+                <span class="relative flex h-full w-full items-center justify-center rounded-full bg-white">
+                  <span class="flex h-[66px] w-[66px] items-center justify-center rounded-full bg-brand text-white">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+                      <circle cx="12" cy="13" r="3.5" />
+                    </svg>
+                  </span>
+                </span>
+              </button>
+              <span class="text-xs font-bold text-ink" aria-hidden="true">Lưu khoảnh khắc</span>
+            </div>
+
+            <button
+              type="button"
+              class="flex min-h-11 cursor-pointer flex-col items-center gap-1.5 justify-self-end border-0 bg-transparent p-0 text-muted"
+              aria-label="Mở album chung"
+              (click)="openAlbum()"
+            >
+              <span #albumThumb class="relative block h-12 w-12" aria-hidden="true">
+                <span class="absolute inset-0 -rotate-[9deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #9fd3ee, #0e4f75)"></span>
+                <span class="absolute inset-0 rotate-[7deg] rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffb3cf, #17709f)"></span>
+                <span class="absolute inset-0 rounded-[14px] border-2 border-white shadow-sm" style="background: linear-gradient(160deg, #ffd0e1, #3c8fbf)"></span>
+                @if (albumPreview(); as m) {
+                  @if (m.thumbUrl) {
+                    <img class="absolute inset-0 h-full w-full rounded-[14px] border-2 border-white object-cover" [src]="m.thumbUrl" alt="" (error)="onAlbumImageError(m)" />
+                  }
                 }
-              }
-            </span>
-            <span class="text-xs font-semibold">Album</span>
-          </button>
+              </span>
+              <span class="text-xs font-semibold">Album</span>
+            </button>
+          </div>
         </div>
 
         @if (flying(); as f) {

@@ -10,6 +10,47 @@
   outline: 3px solid #fff;
   outline-offset: 2px;
 }
+/* Khung nổi trên ảnh: kính mờ, viền chuyển màu thương hiệu và quầng sáng hồng. */
+.glass {
+  position: relative;
+  background: rgb(6 26 42 / 0.38);
+  box-shadow:
+    0 8px 22px rgb(0 0 0 / 0.25),
+    0 0 14px rgb(255 123 172 / 0.18);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+/* Vẽ riêng phần viền bằng mặt nạ để lòng khung vẫn trong. */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    120deg,
+    rgb(255 123 172 / 0.7),
+    rgb(255 208 225 / 0.55) 35%,
+    rgb(108 200 240 / 0.6) 70%,
+    rgb(23 112 159 / 0.7)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+/* Ô mô tả đang gõ: viền trắng đè lên đúng chỗ viền màu. */
+.screen .glass > input:focus-visible {
+  outline-offset: -1.5px;
+}
+.badge {
+  text-shadow: none;
+}
 .mirrored {
   transform: scaleX(-1);
 }

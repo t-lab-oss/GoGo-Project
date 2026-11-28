@@ -36,7 +36,7 @@ const toDigits = (text: string) => [...text.replace(/\D/g, '')].reduce(pressAmou
   host: {
     // Màn phía sau cũng nghe thao tác lướt ngang: kéo trên thẻ không được đổi cụm.
     'data-noswipe': '',
-    class: 'block touch-pan-y',
+    class: 'block touch-pan-y touch-pinch-zoom',
     '(pointerdown)': 'onPointerDown($event)',
     '(pointermove)': 'onPointerMove($event)',
     '(pointerup)': 'onPointerUp($event)',
