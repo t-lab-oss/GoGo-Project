@@ -1,5 +1,5 @@
 /**
- * Tạo 2 tài khoản dùng trong giai đoạn đầu (chưa có đăng ký).
+ * Tạo 2 tài khoản dùng trong giai đoạn đầu (chưa có đăng ký) và chuyến mẫu "Phú Quốc".
  *   npm run seed              tạo tài khoản còn thiếu, in mật khẩu một lần
  *   npm run seed -- --reset   đặt lại mật khẩu mới cho cả hai
  * Muốn tự chọn mật khẩu: đặt SEED_PASSWORD_HANY, SEED_PASSWORD_TIENCUTO (8 đến 72 ký tự).
@@ -10,6 +10,7 @@ import mongoose from 'mongoose';
 import { config } from '../src/config';
 import { RefreshTokenModel } from '../src/modules/auth/refresh-token.model';
 import { UserModel } from '../src/modules/users/user.model';
+import { seedDemoTrip } from './seed-trips';
 
 const ACCOUNTS = [
   { username: 'hany', envKey: 'SEED_PASSWORD_HANY' },
@@ -61,6 +62,8 @@ async function main() {
       console.log(`- ${account.username}: đã tạo (${user.publicId}), mật khẩu -> ${password}`);
     }
   }
+
+  await seedDemoTrip();
 
   await mongoose.disconnect();
 }

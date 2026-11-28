@@ -107,7 +107,7 @@
               <div class="flex items-center gap-2">
                 <h3 class="m-0 truncate text-base font-bold tracking-[-0.2px]">{{ p.label }}</h3>
               </div>
-              @if (p.manualHours || p.manualPrice) {
+              @if (p.manualHours) {
                 <div class="mt-1.5 flex flex-wrap gap-1.5">
                   @if (p.manualHours; as h) {
                     <span
@@ -130,13 +130,10 @@
                       {{ h.open }}–{{ h.close }}
                     </span>
                   }
-                  @if (p.manualPrice) {
-                    <span
-                      class="inline-flex items-center rounded-full bg-[#F6F1F3] px-2.5 py-1 text-xs font-medium text-muted"
-                      >{{ p.manualPrice }}</span
-                    >
-                  }
                 </div>
+              }
+              @if (p.address) {
+                <p class="m-0 mt-1.5 text-[13px] leading-snug text-muted">{{ p.address }}</p>
               }
               @if (p.note) {
                 <p class="m-0 mt-1.5 text-[13px] leading-snug text-muted">{{ p.note }}</p>
@@ -311,15 +308,14 @@
                 </div>
               </div>
               <div>
-                <label class="field-label" [for]="'price-' + p.id">Mức giá</label>
+                <label class="field-label" [for]="'address-' + p.id">Địa chỉ</label>
                 <input
-                  [id]="'price-' + p.id"
-                  name="price"
+                  [id]="'address-' + p.id"
+                  name="address"
                   class="field-input"
                   type="text"
-                  maxlength="40"
-                  placeholder="Vd: 30–60k"
-                  [(ngModel)]="draft.manualPrice"
+                  maxlength="200"
+                  [(ngModel)]="draft.address"
                 />
               </div>
               <div>
@@ -422,7 +418,22 @@
               />
             </div>
             <div>
-              <label class="field-label" for="new-url">Link Google Maps (không bắt buộc)</label>
+              <label class="field-label" for="new-address">Địa chỉ</label>
+              <input
+                id="new-address"
+                name="address"
+                class="field-input"
+                type="text"
+                maxlength="200"
+                aria-describedby="new-address-hint"
+                [(ngModel)]="newPlace.address"
+              />
+              <p id="new-address-hint" class="m-0 mt-1 text-xs text-muted">
+                Cần địa chỉ hoặc link Google Maps.
+              </p>
+            </div>
+            <div>
+              <label class="field-label" for="new-url">Link Google Maps</label>
               <input
                 id="new-url"
                 name="url"
@@ -449,7 +460,11 @@
             <button
               type="submit"
               class="btn btn-primary"
-              [disabled]="adding() || !newPlace.label.trim()"
+              [disabled]="
+                adding() ||
+                !newPlace.label.trim() ||
+                (!newPlace.address.trim() && !newPlace.mapsUrl.trim())
+              "
             >
               {{ adding() ? 'Đang lưu…' : 'Thêm quán' }}
             </button>

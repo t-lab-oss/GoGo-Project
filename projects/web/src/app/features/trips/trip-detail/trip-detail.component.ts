@@ -35,6 +35,10 @@ export class TripDetailComponent {
     (this.trip()?.members ?? []).map((m) => m.username.charAt(0).toUpperCase()),
   );
 
+  readonly memberNames = computed(() =>
+    (this.trip()?.members ?? []).map((m) => m.username).join(', '),
+  );
+
   constructor() {
     this.load();
   }
@@ -55,11 +59,6 @@ export class TripDetailComponent {
       },
       error: (err) => this.fail(err),
     });
-  }
-
-  placeSummary(c: Cluster): string {
-    const count = c.placeCount === 0 ? 'chưa có quán' : `${c.placeCount} quán`;
-    return `${c.startTime}–${c.endTime} · ${count}`;
   }
 
   openAdd(): void {

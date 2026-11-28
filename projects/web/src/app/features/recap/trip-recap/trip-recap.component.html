@@ -1,6 +1,6 @@
 <main class="flex min-h-dvh flex-col gap-4 px-5 pb-10 pt-5">
   <header class="flex items-center justify-between">
-    <app-back-link [link]="['/trips']" />
+    <app-back-link [link]="['/trips']" [query]="{ list: 1 }" />
     <a
       [routerLink]="['/trips', tripId, 'expenses']"
       class="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-semibold text-brand no-underline shadow-[0_2px_8px_rgba(11,47,74,0.08)]"
@@ -69,7 +69,7 @@
           <div class="mt-0.5 text-[38px] font-extrabold leading-none tracking-[-1.5px] text-ink">
             {{ formatVnd(r.stats.totalSpent) }}
           </div>
-          <div class="mt-4 grid grid-cols-3 gap-2 border-t border-white/70 pt-4">
+          <div class="mt-4 grid grid-cols-2 gap-2 border-t border-white/70 pt-4">
             <div>
               <div class="text-xl font-extrabold">{{ r.stats.dayCount }}</div>
               <div class="text-xs text-muted">ngày</div>
@@ -77,10 +77,6 @@
             <div>
               <div class="text-xl font-extrabold">{{ r.stats.visitedCount }}</div>
               <div class="text-xs text-muted">nơi đã tới</div>
-            </div>
-            <div>
-              <div class="text-xl font-extrabold">{{ formatVnd(average()) }}</div>
-              <div class="text-xs text-muted">mỗi ngày</div>
             </div>
           </div>
         </section>

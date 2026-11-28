@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
   selector: 'app-back-link',
   imports: [RouterLink],
   template: `
-    <a [routerLink]="link()" class="icon-btn" aria-label="Quay lại">
+    <a [routerLink]="link()" [queryParams]="query()" class="icon-btn" aria-label="Quay lại">
       <svg
         width="20"
         height="20"
@@ -25,4 +25,5 @@ import { RouterLink } from '@angular/router';
 })
 export class BackLinkComponent {
   readonly link = input.required<string | unknown[]>();
+  readonly query = input<Record<string, unknown>>({});
 }

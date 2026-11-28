@@ -1,0 +1,201 @@
+<div class="fixed inset-0 z-50 flex items-end justify-center">
+  <div class="backdrop absolute inset-0 bg-ink/45" aria-hidden="true" (click)="close()"></div>
+
+  <div
+    #panel
+    class="panel relative flex max-h-[92dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-3xl bg-surface shadow-[0_-12px_40px_rgba(11,47,74,0.25)]"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="ps-title"
+    (keydown)="onKeydown($event)"
+  >
+    <!-- Lướt phần đầu xuống để đóng. -->
+    <div class="flex touch-none justify-center pt-2.5" appSwipe (appSwipe)="$event === 'down' && close()" aria-hidden="true">
+      <span class="h-1.5 w-11 rounded-full bg-line"></span>
+    </div>
+    <header
+      class="flex touch-none items-center justify-between gap-3 px-5 pb-2 pt-1.5"
+      appSwipe
+      (appSwipe)="$event === 'down' && close()"
+    >
+      <h2 id="ps-title" class="m-0 text-xl font-bold tracking-[-0.3px]">
+        {{ isEdit() ? 'Sửa quán' : 'Thêm quán' }}
+      </h2>
+      <button type="button" class="icon-btn cursor-pointer border-0" aria-label="Đóng" (click)="close()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <form class="flex min-h-0 flex-1 flex-col" (ngSubmit)="submit()" novalidate>
+      <div class="flex flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-5 pb-4 pt-2">
+        <!-- Tên quán -->
+        <div>
+          <label class="field-label" for="ps-label">Tên quán</label>
+          <input
+            id="ps-label"
+            name="label"
+            class="field-input"
+            [class.invalid]="errors().label"
+            type="text"
+            autocomplete="off"
+            maxlength="80"
+            placeholder="vd: Bánh canh Hẻm"
+            [ngModel]="label()"
+            (ngModelChange)="onLabelInput($event)"
+            (blur)="detectDish()"
+            (keydown.enter)="$event.preventDefault(); detectDish()"
+            [attr.aria-invalid]="errors().label ? 'true' : null"
+            [attr.aria-describedby]="errors().label ? 'ps-label-error' : null"
+          />
+          @if (errors().label) {
+            <p id="ps-label-error" class="mt-1.5 text-[13px] text-danger">{{ errors().label }}</p>
+          }
+        </div>
+
+        <!-- Ảnh minh hoạ: tự tìm theo món trong tên quán. Vùng live luôn có trong DOM. -->
+        <div class="flex flex-col gap-2 empty:hidden" aria-live="polite">
+          @if (image(); as img) {
+            <div class="card flex items-center gap-3 p-2.5">
+              <img class="h-16 w-16 flex-none rounded-xl object-cover" [src]="img.url" alt="Ảnh minh hoạ đã chọn" width="64" height="64" />
+              <p class="m-0 min-w-0 flex-1 text-xs leading-snug text-muted">
+                Ảnh: {{ img.author }} · {{ img.license }} ·
+                <a class="text-brand underline" [href]="img.sourceUrl" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>
+              </p>
+              <button type="button" class="btn btn-outline btn-sm min-h-11 cursor-pointer" (click)="removeImage()">
+                Gỡ ảnh
+              </button>
+            </div>
+          }
+
+          @switch (imageState()) {
+            @case ('loading') {
+              <p class="m-0 animate-pulse text-[13px] font-semibold text-muted motion-reduce:animate-none">
+                Đang tìm ảnh {{ dish() }}…
+              </p>
+            }
+            @case ('error') {
+              <div class="flex items-center justify-between gap-3 rounded-xl bg-accent-soft px-3 py-1">
+                <p class="m-0 text-[13px] text-danger">{{ imageMessage() }}</p>
+                <button type="button" class="min-h-11 flex-none cursor-pointer border-0 bg-transparent px-2 text-[13px] font-semibold text-brand" (click)="searchImages()">
+                  Thử lại
+                </button>
+              </div>
+            }
+            @case ('done') {
+              @if (imageResults().length === 0) {
+                <p class="m-0 text-[13px] text-muted">Không tìm thấy ảnh cho “{{ dish() }}”.</p>
+              } @else {
+                <p id="ps-image-heading" class="field-label m-0">Chọn ảnh minh hoạ</p>
+                <div role="radiogroup" aria-labelledby="ps-image-heading" class="grid grid-cols-3 gap-2">
+                  @for (r of imageResults(); track r.id) {
+                    <button
+                      type="button"
+                      role="radio"
+                      class="relative aspect-square min-h-11 cursor-pointer overflow-hidden rounded-xl border-2 bg-white p-0"
+                      [class]="isSelectedImage(image(), r) ? 'border-brand' : 'border-transparent'"
+                      [attr.aria-checked]="isSelectedImage(image(), r)"
+                      [attr.aria-label]="r.alt"
+                      (click)="pickImage(r)"
+                    >
+                      <img class="h-full w-full object-cover" [src]="r.thumbUrl" alt="" loading="lazy" width="120" height="120" />
+                      @if (isSelectedImage(image(), r)) {
+                        <span class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white" aria-hidden="true">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10" /></svg>
+                        </span>
+                      }
+                    </button>
+                  }
+                </div>
+              }
+            }
+          }
+        </div>
+
+        <!-- Địa chỉ: link Google Maps hoặc chữ -->
+        <div>
+          <label class="field-label" for="ps-address">Địa chỉ</label>
+          <input
+            id="ps-address"
+            name="address"
+            class="field-input"
+            [class.invalid]="errors().address"
+            type="text"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            placeholder="Dán link Google Maps hoặc gõ địa chỉ"
+            [ngModel]="address()"
+            (ngModelChange)="onAddressInput($event)"
+            (paste)="onAddressPaste()"
+            [attr.aria-invalid]="errors().address ? 'true' : null"
+            [attr.aria-describedby]="errors().address ? 'ps-address-error' : 'ps-address-help'"
+          />
+          @if (errors().address) {
+            <p id="ps-address-error" class="mt-1.5 text-[13px] text-danger">{{ errors().address }}</p>
+          } @else {
+            <p id="ps-address-help" class="mt-1.5 text-[13px] text-muted">
+              Dán link chia sẻ từ Google Maps để tự điền tên và tính khoảng cách.
+            </p>
+          }
+          @switch (lookupState()) {
+            @case ('loading') {
+              <p class="mt-2 text-[13px] text-muted" role="status">{{ lookupMessage() }}</p>
+            }
+            @case ('ok') {
+              <p class="mt-2 rounded-xl bg-brand-soft px-3 py-2 text-[13px] font-medium text-brand" role="status">
+                ✓ {{ lookupMessage() }}
+              </p>
+            }
+            @case ('warn') {
+              <p class="mt-2 rounded-xl bg-brand-soft px-3 py-2 text-[13px] text-muted" role="status">
+                {{ lookupMessage() }}
+              </p>
+            }
+            @case ('error') {
+              <p class="mt-2 rounded-xl bg-accent-soft px-3 py-2 text-[13px] text-danger" role="status">
+                {{ lookupMessage() }}
+              </p>
+            }
+          }
+        </div>
+
+        <!-- Cụm -->
+        <div>
+          <label class="field-label" for="ps-cluster">Cụm</label>
+          <select
+            id="ps-cluster"
+            name="clusterId"
+            class="field-input"
+            [class.invalid]="errors().clusterId"
+            [ngModel]="clusterId()"
+            (ngModelChange)="clusterId.set($event); clearError('clusterId')"
+            [attr.aria-invalid]="errors().clusterId ? 'true' : null"
+            [attr.aria-describedby]="errors().clusterId ? 'ps-cluster-error' : null"
+          >
+            @for (c of clusters(); track c.id) {
+              <option [value]="c.id">{{ c.name }} · {{ formatRange(c) }}</option>
+            }
+          </select>
+          @if (errors().clusterId) {
+            <p id="ps-cluster-error" class="mt-1.5 text-[13px] text-danger">{{ errors().clusterId }}</p>
+          }
+        </div>
+
+        @if (formError()) {
+          <p class="m-0 rounded-xl bg-accent-soft px-3 py-2.5 text-sm text-danger" role="alert">{{ formError() }}</p>
+        }
+      </div>
+
+      <footer class="flex gap-2.5 border-t border-line bg-surface px-5 pb-5 pt-3">
+        <button type="button" class="btn btn-outline flex-1 cursor-pointer" (click)="close()" [disabled]="saving()">
+          Huỷ
+        </button>
+        <button type="submit" class="btn btn-primary flex-1 cursor-pointer" [disabled]="saving()">
+          {{ saving() ? 'Đang lưu…' : isEdit() ? 'Lưu thay đổi' : 'Thêm quán' }}
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>

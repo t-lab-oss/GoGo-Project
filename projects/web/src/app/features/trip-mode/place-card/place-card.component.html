@@ -1,0 +1,130 @@
+<div class="flip" [class.is-flipped]="flipped()">
+  <!-- Mặt trước -->
+  <div class="face" [attr.inert]="flipped() ? '' : null">
+    <button
+      type="button"
+      class="absolute inset-0 block h-full w-full cursor-pointer overflow-hidden rounded-3xl border-0 p-0 text-left text-white"
+      [attr.aria-label]="place().label + ', chạm để lật thẻ'"
+      (click)="flipToggle.emit()"
+    >
+      <span class="absolute inset-0" aria-hidden="true" [style.background]="gradient()"></span>
+      @if (cover(); as url) {
+        <img
+          class="absolute inset-0 h-full w-full object-cover"
+          [src]="url"
+          alt=""
+          loading="lazy"
+          draggable="false"
+          (error)="onImageError(url)"
+        />
+      }
+      @if (checkinTime()) {
+        <span class="pill absolute left-3.5 top-3.5 bg-white text-ink">✓ Đã đi</span>
+      }
+      <span
+        class="absolute inset-x-0 bottom-0 block bg-gradient-to-t from-[rgba(8,30,48,0.82)] to-transparent px-[18px] pb-4 pt-14"
+      >
+        <span class="block text-2xl font-bold tracking-[-0.4px]">{{ place().label }}</span>
+        @if (rating(); as r) {
+          <span class="mt-1 block" role="img" [attr.aria-label]="formatStars(r) + ' trên 5 sao'">
+            <app-stars [value]="r" [size]="17" />
+          </span>
+        }
+        <span class="mt-0.5 block text-sm opacity-90">{{ frontMeta() }}</span>
+      </span>
+    </button>
+  </div>
+
+  <!-- Mặt sau -->
+  <div class="face face-back" [attr.inert]="flipped() ? null : ''">
+    <!-- Chạm vào vùng trống của mặt sau (ngoài các nút) thì lật lại. -->
+    <div
+      class="relative flex h-full cursor-pointer flex-col gap-1.5 rounded-3xl bg-white p-[18px]"
+      (click)="flipToggle.emit()"
+    >
+      <button
+        type="button"
+        class="flex min-h-11 w-full cursor-pointer flex-col gap-1.5 border-0 bg-transparent p-0 pr-10 text-left text-ink"
+        aria-label="Lật lại thẻ"
+        (click)="$event.stopPropagation(); flipToggle.emit()"
+      >
+        <span class="text-[22px] font-bold leading-tight tracking-[-0.3px]">{{ place().label }}</span>
+        @if (addressText()) {
+          <span class="line-clamp-3 flex items-start gap-1.5 text-sm leading-snug text-muted">
+            <svg class="mt-0.5 flex-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            <span>{{ addressText() }}</span>
+          </span>
+        }
+        @if (caption()) {
+          <span class="line-clamp-2 text-sm leading-snug text-ink">{{ caption() }}</span>
+        }
+        @if (review()) {
+          <span class="line-clamp-2 text-sm font-semibold leading-snug text-ink">“{{ review() }}”</span>
+        }
+      </button>
+      <button
+        type="button"
+        class="absolute right-2 top-2 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-muted"
+        [attr.aria-label]="'Sửa quán ' + place().label"
+        (click)="$event.stopPropagation(); edit.emit()"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+        </svg>
+      </button>
+      <div class="flex-1"></div>
+      @if (credit(); as c) {
+        <p class="m-0 line-clamp-2 text-xs leading-snug text-muted">
+          Ảnh: {{ c.author }} ·
+          @if (c.licenseUrl) {
+            <a
+              class="inline-block py-1 text-brand underline"
+              [href]="c.licenseUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              (click)="$event.stopPropagation()"
+              >{{ c.license }}</a
+            >
+          } @else {
+            {{ c.license }}
+          }
+          ·
+          <a
+            class="inline-block py-1 text-brand underline"
+            [href]="c.sourceUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            (click)="$event.stopPropagation()"
+            >Wikimedia Commons</a
+          >
+        </p>
+      }
+      <div class="flex gap-2">
+        <a
+          class="btn btn-outline min-h-11 flex-1 whitespace-nowrap"
+          [href]="directions()"
+          target="_blank"
+          rel="noopener noreferrer"
+          (click)="$event.stopPropagation()"
+          >Chỉ đường</a
+        >
+        @if (checkinTime()) {
+          <span class="btn flex-1 bg-brand-soft text-brand">✓ {{ checkinTime() }}</span>
+        } @else {
+          <button
+            type="button"
+            class="btn btn-primary min-h-11 flex-1 cursor-pointer"
+            [attr.aria-label]="'Check-in ' + place().label"
+            (click)="$event.stopPropagation(); checkin.emit()"
+          >
+            Check-in
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>

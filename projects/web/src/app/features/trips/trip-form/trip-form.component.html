@@ -1,6 +1,6 @@
 <main class="flex min-h-dvh flex-col gap-3.5 px-5 pb-6 pt-5">
   <header class="flex items-center justify-between">
-    <app-back-link [link]="backLink()" />
+    <app-back-link [link]="backLink()" [query]="tripId ? {} : { list: 1 }" />
     <h1 class="m-0 flex-1 text-center text-[19px] font-bold tracking-[-0.3px]">
       {{ isEdit ? 'Sửa chuyến đi' : 'Chuyến đi mới' }}
     </h1>

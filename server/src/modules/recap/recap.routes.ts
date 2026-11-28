@@ -1,23 +1,23 @@
 import { Router } from 'express';
 import type { DayRecap, TripRecap } from '../../../../projects/shared/src/public-api';
 import { AppError } from '../../lib/app-error';
-import { CheckinModel, ExpenseModel, type CheckinDoc, type ExpenseDoc } from '../checkins/checkin.model';
+import { buildDays, timeIn } from '../../lib/trip-dates';
+import { CheckinModel, type CheckinDoc } from '../checkins/checkin.model';
 import { ClusterModel, type ClusterDoc } from '../clusters/cluster.model';
-import { PlaceModel, type PlaceDoc } from '../places/place.model';
-import { loadTrip, param } from '../trips/trip.service';
-import { daysBetween, timeOf, validDate } from '../trips/trip-utils';
+import { ExpenseModel, type ExpenseDoc } from '../expenses/expense.model';
+import { TripPlaceModel, type TripPlaceDoc } from '../places/trip-place.model';
 
 export const recapRouter = Router({ mergeParams: true });
 
 /** Recap chưa có ảnh/khoảnh khắc: các trường đó trả rỗng cho tới khi làm module Khoảnh khắc. */
 recapRouter.get('/', async (req, res) => {
-  const trip = await loadTrip(req);
-  const days = daysBetween(trip.startDate, trip.endDate);
+  const trip = req.trip!;
+  const days = buildDays(trip.startDate, trip.endDate).map((d) => d.date);
 
   const [checkins, expenses, places] = await Promise.all([
     CheckinModel.find({ tripId: trip._id, dayDate: { $in: days } }).sort({ takenAt: 1 }).lean<CheckinDoc[]>(),
     ExpenseModel.find({ tripId: trip._id, dayDate: { $in: days } }).lean<ExpenseDoc[]>(),
-    PlaceModel.find({ tripId: trip._id }).lean<PlaceDoc[]>(),
+    TripPlaceModel.find({ tripId: trip._id }).lean<TripPlaceDoc[]>(),
   ]);
   const placeOf = new Map(places.map((p) => [String(p._id), p]));
   const spentOn = (date: string) => expenses.filter((e) => e.dayDate === date).reduce((s, e) => s + e.amount, 0);
@@ -53,10 +53,10 @@ recapRouter.get('/', async (req, res) => {
 });
 
 recapRouter.get('/days/:date', async (req, res) => {
-  const trip = await loadTrip(req);
-  const date = param(req, 'date');
-  const days = daysBetween(trip.startDate, trip.endDate);
-  if (!validDate(date) || !days.includes(date)) {
+  const trip = req.trip!;
+  const date = String((req.params as Record<string, string>)['date']);
+  const days = buildDays(trip.startDate, trip.endDate).map((d) => d.date);
+  if (!days.includes(date)) {
     throw new AppError(422, 'DATE_OUT_OF_RANGE', 'Ngày này nằm ngoài khoảng ngày của chuyến.');
   }
 
@@ -64,7 +64,7 @@ recapRouter.get('/days/:date', async (req, res) => {
     CheckinModel.find({ tripId: trip._id, dayDate: date }).sort({ takenAt: 1 }).lean<CheckinDoc[]>(),
     ExpenseModel.find({ tripId: trip._id, dayDate: date }).lean<ExpenseDoc[]>(),
     ClusterModel.find({ tripId: trip._id }).lean<ClusterDoc[]>(),
-    PlaceModel.find({ tripId: trip._id }).lean<PlaceDoc[]>(),
+    TripPlaceModel.find({ tripId: trip._id }).lean<TripPlaceDoc[]>(),
   ]);
   const expenseOf = new Map(expenses.map((e) => [String(e.checkinId), e]));
   const clusterName = new Map(clusters.map((c) => [String(c._id), c.name]));
@@ -79,7 +79,7 @@ recapRouter.get('/days/:date', async (req, res) => {
       const expense = expenseOf.get(String(c._id));
       return {
         checkinId: String(c._id),
-        time: timeOf(c.takenAt, trip.tz),
+        time: timeIn(c.takenAt, trip.tz),
         clusterName: clusterName.get(String(c.clusterId)) ?? '',
         label: c.placeLabel,
         lat: c.lat ?? place?.lat ?? null,

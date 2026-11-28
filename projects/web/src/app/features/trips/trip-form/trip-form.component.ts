@@ -125,7 +125,7 @@ export class TripFormComponent {
     if (!this.tripId || !this.canDelete()) return;
     this.deleting.set(true);
     this.api.deleteTrip(this.tripId, this.confirmName).subscribe({
-      next: () => void this.router.navigate(['/trips']),
+      next: () => void this.router.navigate(['/trips'], { queryParams: { list: 1 } }),
       error: (err) => {
         this.deleting.set(false);
         this.error.set(toApiError(err).message);

@@ -39,7 +39,7 @@ export class ExpenseEntryComponent {
         this.checkin.set(found);
         if (found?.expense) {
           this.digits.set(found.expense.amount === 0 ? '' : String(found.expense.amount));
-          this.note = found.expense.note;
+          this.note = found.expense.note ?? '';
         }
         this.loading.set(false);
         if (!found) this.error.set('Không tìm thấy check-in này.');

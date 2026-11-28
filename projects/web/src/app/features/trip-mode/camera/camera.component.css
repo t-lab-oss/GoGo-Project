@@ -1,0 +1,40 @@
+:host {
+  display: contents;
+}
+.screen {
+  background: #061a2a;
+}
+.screen.reviewing {
+  background: #fff7fa;
+}
+.screen.reviewing input:focus-visible,
+.screen.reviewing a:focus-visible,
+.screen.reviewing [tabindex]:focus-visible,
+.screen.reviewing button:focus-visible {
+  outline: 3px solid #17709f;
+  outline-offset: 2px;
+}
+.screen input:not([type='file']):focus-visible,
+.screen a:focus-visible,
+.screen button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.mirrored {
+  transform: scaleX(-1);
+}
+.pane {
+  width: 100%;
+  animation: pane-in 0.22s ease-out;
+}
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pane {
+    animation: none;
+  }
+}

@@ -1,10 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { TripStatus, TripSummary } from 'shared';
 import { toApiError } from '../../../core/api/api-error';
 import { TripsApi } from '../../../core/api/trips.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { STATUS_LABEL, formatDM, gradientFor } from '../../../core/format';
+import { TripModeService } from '../../trip-mode/trip-mode.service';
 
 interface Group {
   status: TripStatus;
@@ -12,6 +13,10 @@ interface Group {
   trips: TripSummary[];
 }
 
+/**
+ * Danh sách chuyến (FR-4). Có chuyến đang đi thì mở thẳng Trip Mode làm trang chủ (FR-12).
+ * Các link quay về danh sách kèm `?list=1` để không bị chuyển hướng lại.
+ */
 @Component({
   selector: 'app-trip-list',
   imports: [RouterLink],
@@ -19,6 +24,8 @@ interface Group {
 })
 export class TripListComponent {
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly tripMode = inject(TripModeService);
   private readonly api = inject(TripsApi);
 
   readonly username = computed(() => this.auth.user()?.username ?? '');
@@ -45,6 +52,18 @@ export class TripListComponent {
 
   constructor() {
     this.load();
+    if (!inject(ActivatedRoute).snapshot.queryParamMap.has('list')) this.openOngoingTrip();
+  }
+
+  private openOngoingTrip(): void {
+    this.tripMode.findOngoingTripId().subscribe({
+      next: (id) => {
+        if (id) void this.router.navigate(['/trips', id, 'mode'], { replaceUrl: true });
+      },
+      error: () => {
+        // Không tìm được chuyến đang đi thì ở lại danh sách.
+      },
+    });
   }
 
   load(): void {

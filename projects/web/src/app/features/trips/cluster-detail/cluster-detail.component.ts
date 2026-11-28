@@ -23,11 +23,11 @@ interface PlaceDraft {
   note: string;
   open: string;
   close: string;
-  manualPrice: string;
+  address: string;
   mapsUrl: string;
 }
 
-/** Quán trong một cụm: thêm, sửa ghi chú/giờ/giá, xoá và đánh dấu đã ghé theo ngày. */
+/** Quán trong một cụm: thêm, sửa ghi chú/giờ/địa chỉ, xoá và đánh dấu đã ghé theo ngày. */
 @Component({
   selector: 'app-cluster-detail',
   imports: [NgTemplateOutlet, RouterLink, FormsModule, BackLinkComponent, BottomSheetComponent],
@@ -65,12 +65,12 @@ export class ClusterDetailComponent {
 
   // Sửa quán
   readonly editingId = signal('');
-  draft: PlaceDraft = { note: '', open: '', close: '', manualPrice: '', mapsUrl: '' };
+  draft: PlaceDraft = { note: '', open: '', close: '', address: '', mapsUrl: '' };
   readonly saving = signal(false);
 
   // Thêm quán
   readonly showAdd = signal(false);
-  readonly newPlace = { label: '', mapsUrl: '', note: '' };
+  readonly newPlace = { label: '', address: '', mapsUrl: '', note: '' };
   readonly adding = signal(false);
   readonly addError = signal('');
 
@@ -233,7 +233,6 @@ export class ClusterDetailComponent {
   hoursText(p: TripPlace): string {
     const parts: string[] = [];
     if (p.manualHours) parts.push(`${p.manualHours.open}–${p.manualHours.close}`);
-    if (p.manualPrice) parts.push(p.manualPrice);
     return parts.join(' · ');
   }
 
@@ -244,7 +243,7 @@ export class ClusterDetailComponent {
       note: p.note,
       open: p.manualHours?.open ?? '',
       close: p.manualHours?.close ?? '',
-      manualPrice: p.manualPrice ?? '',
+      address: p.address,
       mapsUrl: p.mapsUrl ?? '',
     };
     this.actionError.set('');
@@ -258,7 +257,7 @@ export class ClusterDetailComponent {
       .updatePlace(this.tripId, p.id, {
         note: this.draft.note,
         manualHours: hasHours ? { open: this.draft.open, close: this.draft.close } : null,
-        manualPrice: this.draft.manualPrice.trim() || null,
+        address: this.draft.address.trim(),
         mapsUrl: this.draft.mapsUrl.trim() || null,
       })
       .subscribe({
@@ -292,6 +291,7 @@ export class ClusterDetailComponent {
   // Thêm quán
   openAdd(): void {
     this.newPlace.label = '';
+    this.newPlace.address = '';
     this.newPlace.mapsUrl = '';
     this.newPlace.note = '';
     this.addError.set('');
@@ -305,6 +305,7 @@ export class ClusterDetailComponent {
       .createPlace(this.tripId, {
         clusterId: this.clusterId(),
         label: this.newPlace.label,
+        address: this.newPlace.address.trim(),
         mapsUrl: this.newPlace.mapsUrl.trim() || null,
         note: this.newPlace.note,
       })

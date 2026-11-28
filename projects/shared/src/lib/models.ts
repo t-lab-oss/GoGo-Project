@@ -48,39 +48,28 @@ export interface Trip extends TripSummary {
   ownerId: string;
   members: User[];
   days: TripDay[];
-  /** Chỉ có ở GET /trips/:tripId. */
-  totalSpent?: number;
+  totalSpent: number;
 }
 
-export interface TripInput {
-  name: string;
-  destination: string;
-  startDate: string;
-  endDate: string;
+/** Ảnh minh hoạ của quán, lấy từ Wikimedia Commons. Cần ghi tác giả và giấy phép khi hiển thị. */
+export interface PlaceImage {
+  url: string;
+  author: string;
+  license: string;
+  licenseUrl?: string;
+  sourceUrl: string;
 }
 
-export interface Cluster {
-  id: string;
-  tripId: string;
-  name: string;
-  type: ClusterType;
-  startTime: string;
-  endTime: string;
-  order: number;
-  placeCount: number;
-  state?: ClusterState;
-  places?: TripPlace[];
-}
-
-export interface ClusterInput {
-  name: string;
-  startTime: string;
-  endTime: string;
-}
-
-export interface ManualHours {
-  open: string;
-  close: string;
+/** Một kết quả tìm ảnh từ GET /trips/:id/place-images. */
+export interface PlaceImageResult {
+  id: number;
+  thumbUrl: string;
+  imageUrl: string;
+  alt: string;
+  author: string;
+  license: string;
+  licenseUrl?: string;
+  sourceUrl: string;
 }
 
 export interface TripPlace {
@@ -90,33 +79,18 @@ export interface TripPlace {
   source: 'link' | 'manual';
   placeId: string | null;
   label: string;
+  /** Toạ độ chỉ có khi địa chỉ là link Google Maps đọc được. */
   lat: number | null;
   lng: number | null;
+  /** Địa chỉ viết tay. Rỗng khi địa chỉ là link (xem mapsUrl). */
+  address: string;
   mapsUrl: string | null;
   note: string;
-  manualHours: ManualHours | null;
+  manualHours: { open: string; close: string } | null;
   manualPrice: string | null;
+  image: PlaceImage | null;
   order: number;
   isArchived: boolean;
-}
-
-export interface PlaceInput {
-  clusterId?: string;
-  label: string;
-  mapsUrl?: string | null;
-  note?: string;
-  manualHours?: ManualHours | null;
-  manualPrice?: string | null;
-}
-
-export interface Expense {
-  checkinId: string;
-  tripPlaceId: string;
-  dayDate: string;
-  amount: number;
-  note: string;
-  enteredBy: string;
-  updatedAt: string;
 }
 
 export interface Checkin {
@@ -131,7 +105,149 @@ export interface Checkin {
   lat: number | null;
   lng: number | null;
   momentId: string | null;
+  /** 0,5 đến 5 sao (bước nửa sao), null nếu không chấm. */
+  rating: number | null;
+  /** Câu đánh giá ngắn, rỗng nếu không viết. */
+  review: string;
+  /** Mô tả ảnh, rỗng nếu không viết. */
+  caption: string;
+  expenseReminder: { skipCount: number; movedToBell: boolean };
   expense?: Expense | null;
+}
+
+export interface Expense {
+  checkinId: string;
+  tripPlaceId: string;
+  dayDate: string;
+  amount: number;
+  note: string | null;
+  enteredBy: string;
+  updatedAt: string;
+}
+
+export interface Cluster {
+  id: string;
+  tripId: string;
+  name: string;
+  type: ClusterType;
+  startTime: string;
+  endTime: string;
+  order: number;
+  placeCount: number;
+  /** Chỉ có khi truy vấn kèm ?date= */
+  state?: ClusterState;
+  /** Chỉ có khi kèm ?include=places */
+  places?: TripPlace[];
+  /** Chỉ có khi kèm ?include=checkins (cần date) */
+  checkins?: Checkin[];
+}
+
+export interface Moment {
+  id: string;
+  tripId: string;
+  user: { id: string; username: string };
+  source: MomentSource;
+  checkinId: string | null;
+  tripPlaceId: string | null;
+  photoUrl: string;
+  thumbUrl: string;
+  urlExpiresAt: string;
+  width: number;
+  height: number;
+  note: string;
+  mood: Mood | null;
+  takenAt: string;
+  dayDate: string;
+  lat: number | null;
+  lng: number | null;
+  placeLabel: string | null;
+  isPrivate: boolean;
+  isHighlight: boolean;
+}
+
+/** Kích thước và dung lượng ảnh đã nén, gửi kèm khi tạo check-in hoặc khoảnh khắc có ảnh. */
+export interface PhotoMeta {
+  width: number;
+  height: number;
+  bytes: number;
+}
+
+/** Phản hồi của POST /trips/:tripId/uploads (API Contract mục 9). */
+export interface UploadTickets {
+  items: { momentId: string; photo: { uploadUrl: string }; thumb: { uploadUrl: string } }[];
+  expiresAt: string;
+}
+
+/** Body của PUT /trips/:tripId/checkins/:checkinId. momentId và photo đi cùng nhau. */
+export interface CheckinInput {
+  tripPlaceId: string;
+  takenAt: string;
+  lat?: number;
+  lng?: number;
+  momentId?: string;
+  photo?: PhotoMeta;
+  rating?: number;
+  review?: string;
+  caption?: string;
+}
+
+export interface CheckinResult {
+  checkin: Checkin;
+  moment: Moment | null;
+}
+
+/** Body của PUT /trips/:tripId/moments/:momentId. */
+export interface MomentInput {
+  source: 'camera' | 'import';
+  photo: PhotoMeta;
+  takenAt: string;
+  note?: string;
+  mood?: Mood;
+  lat?: number;
+  lng?: number;
+  placeLabel?: string;
+  tripPlaceId?: string;
+  checkinId?: string;
+}
+
+export interface Notification {
+  id: string;
+  tripId: string;
+  type: NotificationType;
+  refId: string | null;
+  payload: Record<string, unknown>;
+  dedupeKey: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+/** Body của POST /trips và PATCH /trips/:tripId. */
+export interface TripInput {
+  name: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+}
+
+/** Body của POST và PATCH cụm. */
+export interface ClusterInput {
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * Body của POST và PATCH quán ở màn chuẩn bị. Phải có address hoặc mapsUrl.
+ * Trường bỏ trống thì PATCH giữ nguyên giá trị đang có.
+ */
+export interface PlaceInput {
+  clusterId?: string;
+  label?: string;
+  address?: string;
+  mapsUrl?: string | null;
+  note?: string;
+  manualHours?: { open: string; close: string } | null;
+  manualPrice?: string | null;
 }
 
 export interface ExpenseItem {
@@ -140,16 +256,19 @@ export interface ExpenseItem {
   placeLabel: string;
   clusterName: string;
   dayIndex: number;
+  /** null nghĩa là "Chưa nhập". */
   amount: number | null;
   note: string | null;
 }
 
+/** Phản hồi của GET /trips/:tripId/expenses?groupBy=day. */
 export interface ExpensesByDay {
   total: number;
   missingCount: number;
   days: { date: string; index: number; total: number; items: ExpenseItem[] }[];
 }
 
+/** Phản hồi của GET /trips/:tripId/expenses?groupBy=place. */
 export interface ExpensesByPlace {
   total: number;
   missingCount: number;
@@ -167,6 +286,7 @@ export interface ExpensesByPlace {
   }[];
 }
 
+/** Recap chưa ghép ảnh: momentCount, highlight, cover, moment và moments còn để trống. */
 export interface TripRecap {
   stats: { dayCount: number; visitedCount: number; momentCount: number; totalSpent: number };
   route: {

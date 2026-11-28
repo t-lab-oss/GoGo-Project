@@ -1,19 +1,19 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { ExpenseItem, ExpensesByDay, ExpensesByPlace } from '../../../../projects/shared/src/public-api';
+import { buildDays } from '../../lib/trip-dates';
+import { CheckinModel, type CheckinDoc } from '../checkins/checkin.model';
 import { ClusterModel, type ClusterDoc } from '../clusters/cluster.model';
-import { loadTrip } from '../trips/trip.service';
-import { daysBetween } from '../trips/trip-utils';
-import { CheckinModel, ExpenseModel, type CheckinDoc, type ExpenseDoc } from './checkin.model';
+import { ExpenseModel, type ExpenseDoc } from './expense.model';
 
 export const expensesRouter = Router({ mergeParams: true });
 
 // Tổng hợp chi tiêu theo ngày hoặc theo quán. amount = null nghĩa là "Chưa nhập".
 expensesRouter.get('/', async (req, res) => {
-  const trip = await loadTrip(req);
+  const trip = req.trip!;
   const { groupBy } = z.object({ groupBy: z.enum(['day', 'place']).default('day') }).parse(req.query);
 
-  const days = daysBetween(trip.startDate, trip.endDate);
+  const days = buildDays(trip.startDate, trip.endDate).map((d) => d.date);
   const dayIndex = new Map(days.map((d, i) => [d, i + 1]));
 
   const [checkins, expenses, clusters] = await Promise.all([
@@ -32,7 +32,7 @@ expensesRouter.get('/', async (req, res) => {
       dayIndex: dayIndex.get(c.dayDate) ?? 0,
       clusterName: clusterName.get(String(c.clusterId)) ?? '',
       amount: e ? e.amount : null,
-      note: e ? (e.note ?? '') : null,
+      note: e?.note || null,
     };
   });
   const total = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
